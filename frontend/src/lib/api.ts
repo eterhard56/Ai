@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 
 export interface Agent {
   id: string;
@@ -133,6 +133,8 @@ class ApiClient {
   getMe() { return this.request<Record<string, unknown>>("/auth/me"); }
   getDashboardStats() { return this.request<DashboardStats>("/dashboard/stats"); }
   getAgents() { return this.request<Agent[]>("/agents"); }
+  getAgentStatus(slug: string) { return this.request<{ online: boolean; status: string }>(`/agents/${slug}/status`); }
+  runAgent(slug: string) { return this.request<{ status: string; result: unknown }>(`/agents/${slug}/run`, { method: "POST" }); }
   getRecommendations(params?: string) { return this.request<Recommendation[]>(`/recommendations${params ? `?${params}` : ""}`); }
   reviewRecommendation(id: string, status: string) {
     return this.request<Recommendation>(`/recommendations/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });

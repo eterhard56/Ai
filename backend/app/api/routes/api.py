@@ -1,8 +1,9 @@
 import uuid
 from datetime import datetime, timezone
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_role
@@ -40,6 +41,15 @@ from app.services.plugin_loader import plugin_loader
 
 router = APIRouter(tags=["API"])
 
+AGENT_ENDPOINTS: dict[str, dict] = {
+    "direct": {"url": "http://127.0.0.1:8101", "path": "/run/analyze", "method": "POST", "body": {}},
+    "seo": {"url": "http://127.0.0.1:8102", "path": "/run/audit", "method": "POST", "body": {"url": "https://skolesnikov.site"}},
+    "analytics": {"url": "http://127.0.0.1:8103", "path": "/run/daily", "method": "POST", "body": {}},
+    "crm": {"url": "http://127.0.0.1:8104", "path": "/run/reminders", "method": "POST", "body": {}},
+    "parser": {"url": "http://127.0.0.1:8105", "path": "/run/parse", "method": "POST", "body": {"query": "стоматология", "city": "moscow", "limit": 10}},
+    "telegram": {"url": "http://127.0.0.1:8106", "path": "/send/daily-report", "method": "POST", "body": {}},
+}
+
 
 @router.get("/dashboard/stats", response_model=DashboardStats)
 async def dashboard_stats(db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)):
@@ -68,7 +78,61 @@ async def dashboard_stats(db: AsyncSession = Depends(get_db), _: User = Depends(
 @router.get("/agents", response_model=list[AgentResponse])
 async def list_agents(db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)):
     result = await db.execute(select(Agent).order_by(Agent.name))
-    return result.scalars().all()
+    agents = result.scalars().all()
+
+    # Enrich with live health status
+    for agent in agents:
+        ep = AGENT_ENDPOINTS.get(agent.slug)
+        if ep:
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    resp = await client.get(f"{ep['url']}/health")
+                    agent.status = "running" if resp.status_code == 200 else "error"
+            except Exception:
+                agent.status = "error"
+
+    return agents
+
+
+@router.get("/agents/{slug}/status")
+async def agent_status(slug: str, _: User = Depends(get_current_user)):
+    ep = AGENT_ENDPOINTS.get(slug)
+    if not ep:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{ep['url']}/health")
+            data = resp.json() if resp.status_code == 200 else {}
+            return {"slug": slug, "online": resp.status_code == 200, "status": data.get("status", "offline")}
+    except Exception as e:
+        return {"slug": slug, "online": False, "status": "error", "error": str(e)}
+
+
+@router.post("/agents/{slug}/run")
+async def run_agent(slug: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    ep = AGENT_ENDPOINTS.get(slug)
+    if not ep:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    try:
+        async with httpx.AsyncClient(timeout=600.0) as client:
+            if ep["method"] == "POST":
+                resp = await client.post(f"{ep['url']}{ep['path']}", json=ep.get("body", {}))
+            else:
+                resp = await client.get(f"{ep['url']}{ep['path']}")
+            resp.raise_for_status()
+            result = resp.json()
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=502, detail=f"Agent error: {e.response.text[:200]}")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Agent unavailable: {str(e)}")
+
+    await db.execute(update(Agent).where(Agent.slug == slug).values(status="running", last_run_at=datetime.now(timezone.utc)))
+    log = AgentLog(agent_slug=slug, level="info", message=f"Agent run triggered by {user.username}", details=result)
+    db.add(log)
+    await db.flush()
+
+    return {"status": "ok", "slug": slug, "result": result}
 
 
 @router.post("/agents/plugins", response_model=AgentResponse, status_code=201)
@@ -207,10 +271,16 @@ async def send_chat_message(
     history = history_result.scalars().all()
 
     prompt = "\n".join(f"{m.role}: {m.content}" for m in history)
-    response_text = await ollama_service.generate(
-        prompt,
-        system="You are a helpful AI assistant for a business platform. Respond in Russian unless asked otherwise.",
-    )
+    try:
+        response_text = await ollama_service.generate(
+            prompt,
+            system="You are a helpful AI assistant for a business platform. Respond in Russian unless asked otherwise.",
+        )
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Ollama недоступен: {str(e)}")
+
+    if not response_text:
+        raise HTTPException(status_code=503, detail="Ollama вернул пустой ответ. Проверьте модель.")
 
     assistant_msg = ChatMessage(session_id=session_id, role="assistant", content=response_text)
     db.add(assistant_msg)

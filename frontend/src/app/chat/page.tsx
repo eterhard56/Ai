@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Sparkles, Send, Plus } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,12 +17,27 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    api.getChatSessions().then((s) => {
-      setSessions(s);
-      if (s.length > 0) setActiveSession(s[0].id);
-    }).catch(console.error);
+  const [error, setError] = useState<string | null>(null);
+
+  const ensureSession = useCallback(async () => {
+    try {
+      const s = await api.getChatSessions();
+      if (s.length > 0) {
+        setSessions(s);
+        setActiveSession(s[0].id);
+      } else {
+        const created = await api.createChatSession("Мой чат");
+        setSessions([created]);
+        setActiveSession(created.id);
+      }
+    } catch (e) {
+      setError("Не удалось создать чат. Войдите заново.");
+    }
   }, []);
+
+  useEffect(() => {
+    ensureSession();
+  }, [ensureSession]);
 
   useEffect(() => {
     if (activeSession) {
@@ -42,16 +57,25 @@ export default function ChatPage() {
   };
 
   const sendMessage = async () => {
-    if (!input.trim() || !activeSession) return;
+    if (!input.trim()) return;
+    let sessionId = activeSession;
+    if (!sessionId) {
+      const created = await api.createChatSession("Мой чат");
+      setSessions([created]);
+      sessionId = created.id;
+      setActiveSession(sessionId);
+    }
     setLoading(true);
+    setError(null);
     const content = input;
     setInput("");
-    setMessages([...messages, { id: "temp", role: "user", content, created_at: new Date().toISOString() }]);
+    setMessages((prev) => [...prev, { id: "temp", role: "user", content, created_at: new Date().toISOString() }]);
     try {
-      const reply = await api.sendChatMessage(activeSession, content);
+      const reply = await api.sendChatMessage(sessionId, content);
       setMessages((prev) => [...prev.filter((m) => m.id !== "temp"), { id: "temp-u", role: "user", content, created_at: new Date().toISOString() }, reply]);
     } catch (e) {
-      console.error(e);
+      setError(e instanceof Error ? e.message : "Ошибка. Ollama может быть занят — подождите 30 сек и повторите.");
+      setMessages((prev) => prev.filter((m) => m.id !== "temp"));
     } finally {
       setLoading(false);
     }
@@ -97,7 +121,13 @@ export default function ChatPage() {
         </Card>
 
         <Card className="flex-1 flex flex-col min-h-0">
+          {error && (
+            <div className="mx-4 mt-3 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400">{error}</div>
+          )}
           <CardContent className="flex-1 overflow-y-auto pt-4 lg:pt-6 space-y-3 lg:space-y-4">
+            {messages.length === 0 && !loading && (
+              <p className="text-center text-sm text-muted-foreground py-8">Напишите сообщение — ответит локальная AI (Ollama)</p>
+            )}
             {messages.map((msg) => (
               <div key={msg.id + msg.created_at} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[90%] lg:max-w-[80%] rounded-2xl px-4 py-3 text-sm ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted/50"}`}>
@@ -107,7 +137,9 @@ export default function ChatPage() {
             ))}
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-muted/50 rounded-2xl px-4 py-3 text-sm text-muted-foreground animate-pulse">Думаю...</div>
+                <div className="bg-muted/50 rounded-2xl px-4 py-3 text-sm text-muted-foreground animate-pulse">
+                  Думаю... (до 60 сек на CPU)
+                </div>
               </div>
             )}
             <div ref={bottomRef} />
@@ -118,7 +150,7 @@ export default function ChatPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-              disabled={!activeSession || loading}
+              disabled={loading}
               className="flex-1"
             />
             <Button size="icon" onClick={sendMessage} disabled={!activeSession || loading || !input.trim()}>
