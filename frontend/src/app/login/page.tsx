@@ -32,7 +32,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden">
+    <div className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden px-4 safe-top safe-bottom">
       <div className="absolute inset-0 bg-gradient-to-br from-blue-950/50 via-background to-violet-950/30" />
       <div className="absolute top-1/4 left-1/4 h-96 w-96 rounded-full bg-blue-500/10 blur-3xl animate-pulse-slow" />
       <div className="absolute bottom-1/4 right-1/4 h-96 w-96 rounded-full bg-violet-500/10 blur-3xl animate-pulse-slow" />

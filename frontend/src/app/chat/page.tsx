@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api, type ChatSession, type ChatMessage } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 export default function ChatPage() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -56,28 +57,38 @@ export default function ChatPage() {
     }
   };
 
+  const [showSessions, setShowSessions] = useState(false);
+
   return (
     <DashboardLayout>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <Sparkles className="h-8 w-8 text-primary" />
+      <div className="mb-4 lg:mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="hidden lg:block">
+          <h1 className="text-2xl lg:text-3xl font-bold flex items-center gap-3">
+            <Sparkles className="h-7 w-7 lg:h-8 lg:w-8 text-primary" />
             AI Chat
           </h1>
-          <p className="text-muted-foreground mt-1">Локальная модель Ollama (qwen3:8b)</p>
+          <p className="text-sm text-muted-foreground mt-1">Локальная модель Ollama</p>
         </div>
-        <Button onClick={createSession}><Plus className="h-4 w-4" /> Новый чат</Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="secondary" className="lg:hidden" onClick={() => setShowSessions(!showSessions)}>
+            Чаты ({sessions.length})
+          </Button>
+          <Button size="sm" onClick={createSession}><Plus className="h-4 w-4" /> <span className="hidden sm:inline">Новый чат</span></Button>
+        </div>
       </div>
 
-      <div className="flex gap-4 h-[calc(100vh-12rem)]">
-        <Card className="w-64 shrink-0 overflow-y-auto">
-          <CardHeader><CardTitle className="text-sm">Сессии</CardTitle></CardHeader>
-          <CardContent className="space-y-1">
+      <div className="flex flex-col lg:flex-row gap-3 lg:gap-4 h-[calc(100dvh-11rem)] lg:h-[calc(100vh-12rem)]">
+        <Card className={cn(
+          "shrink-0 overflow-y-auto lg:w-64",
+          showSessions ? "block max-h-48 lg:max-h-none" : "hidden lg:block"
+        )}>
+          <CardHeader className="py-3"><CardTitle className="text-sm">Сессии</CardTitle></CardHeader>
+          <CardContent className="space-y-1 pb-3">
             {sessions.map((s) => (
               <button
                 key={s.id}
-                onClick={() => setActiveSession(s.id)}
-                className={`w-full text-left rounded-lg px-3 py-2 text-sm transition-all ${activeSession === s.id ? "bg-primary/15 text-primary" : "hover:bg-muted/50"}`}
+                onClick={() => { setActiveSession(s.id); setShowSessions(false); }}
+                className={`w-full text-left rounded-xl px-3 py-2.5 text-sm transition-all active:scale-[0.98] ${activeSession === s.id ? "bg-primary/15 text-primary" : "hover:bg-muted/50"}`}
               >
                 {s.title}
               </button>
@@ -85,12 +96,12 @@ export default function ChatPage() {
           </CardContent>
         </Card>
 
-        <Card className="flex-1 flex flex-col">
-          <CardContent className="flex-1 overflow-y-auto pt-6 space-y-4">
+        <Card className="flex-1 flex flex-col min-h-0">
+          <CardContent className="flex-1 overflow-y-auto pt-4 lg:pt-6 space-y-3 lg:space-y-4">
             {messages.map((msg) => (
               <div key={msg.id + msg.created_at} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted/50"}`}>
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                <div className={`max-w-[90%] lg:max-w-[80%] rounded-2xl px-4 py-3 text-sm ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted/50"}`}>
+                  <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                 </div>
               </div>
             ))}
@@ -101,7 +112,7 @@ export default function ChatPage() {
             )}
             <div ref={bottomRef} />
           </CardContent>
-          <div className="border-t border-border/50 p-4 flex gap-3">
+          <div className="border-t border-border/50 p-3 lg:p-4 flex gap-2 lg:gap-3 safe-bottom">
             <Input
               placeholder="Сообщение..."
               value={input}
@@ -110,7 +121,7 @@ export default function ChatPage() {
               disabled={!activeSession || loading}
               className="flex-1"
             />
-            <Button onClick={sendMessage} disabled={!activeSession || loading || !input.trim()}>
+            <Button size="icon" onClick={sendMessage} disabled={!activeSession || loading || !input.trim()}>
               <Send className="h-4 w-4" />
             </Button>
           </div>
