@@ -1,4 +1,5 @@
 import uuid
+import os
 from datetime import datetime, timezone
 
 import httpx
@@ -38,6 +39,14 @@ from app.schemas import (
 )
 from app.services.ollama import ollama_service
 from app.services.plugin_loader import plugin_loader
+from app.services.chat_context import (
+    CHAT_SYSTEM_PROMPT,
+    build_platform_context,
+    direct_fallback_response,
+    is_refusal,
+    mentions_direct,
+    try_run_direct_agent,
+)
 
 router = APIRouter(tags=["API"])
 
@@ -270,17 +279,32 @@ async def send_chat_message(
     )
     history = history_result.scalars().all()
 
-    prompt = "\n".join(f"{m.role}: {m.content}" for m in history)
+    agent_note = None
+    if mentions_direct(data.content):
+        agent_note = await try_run_direct_agent()
+
+    platform_context = build_platform_context(data.content, agent_note)
+    messages: list[dict] = [{"role": "system", "content": CHAT_SYSTEM_PROMPT}]
+    if platform_context:
+        messages.append({"role": "system", "content": platform_context})
+
+    for msg in history:
+        if msg.role in ("user", "assistant"):
+            messages.append({"role": msg.role, "content": msg.content})
+
     try:
-        response_text = await ollama_service.generate(
-            prompt,
-            system="You are a helpful AI assistant for a business platform. Respond in Russian unless asked otherwise.",
-        )
+        response_text = await ollama_service.chat(messages)
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Ollama недоступен: {str(e)}")
 
     if not response_text:
         raise HTTPException(status_code=503, detail="Ollama вернул пустой ответ. Проверьте модель.")
+
+    if mentions_direct(data.content) and is_refusal(response_text):
+        token_ok = bool(os.getenv("YANDEX_DIRECT_TOKEN", ""))
+        response_text = direct_fallback_response(token_ok)
+        if agent_note:
+            response_text = f"{agent_note}\n\n{response_text}"
 
     assistant_msg = ChatMessage(session_id=session_id, role="assistant", content=response_text)
     db.add(assistant_msg)

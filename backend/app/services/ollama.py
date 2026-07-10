@@ -13,21 +13,32 @@ class OllamaService:
         self.base_url = settings.ollama_host
         self.model = settings.ollama_model
 
+    async def _chat_request(self, messages: list[dict], temperature: float = 0.7) -> str:
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            response = await client.post(
+                f"{self.base_url}/api/chat",
+                json={
+                    "model": self.model,
+                    "messages": messages,
+                    "stream": False,
+                    "options": {"temperature": temperature, "num_predict": 768},
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data.get("message", {}).get("content", "")
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+    async def chat(self, messages: list[dict], temperature: float = 0.7) -> str:
+        return await self._chat_request(messages, temperature)
+
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
     async def generate(self, prompt: str, system: str | None = None) -> str:
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
-
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            response = await client.post(
-                f"{self.base_url}/api/chat",
-                json={"model": self.model, "messages": messages, "stream": False},
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data.get("message", {}).get("content", "")
+        return await self._chat_request(messages)
 
     async def health_check(self) -> bool:
         try:

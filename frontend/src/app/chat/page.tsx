@@ -126,7 +126,11 @@ export default function ChatPage() {
           )}
           <CardContent className="flex-1 overflow-y-auto pt-4 lg:pt-6 space-y-3 lg:space-y-4">
             {messages.length === 0 && !loading && (
-              <p className="text-center text-sm text-muted-foreground py-8">Напишите сообщение — ответит локальная AI (Ollama)</p>
+              <p className="text-center text-sm text-muted-foreground py-8">
+                Спросите про Яндекс Директ, SEO, CRM или аналитику.
+                <br />
+                <span className="text-xs">API-ключи настраиваются на сервере, не в чате.</span>
+              </p>
             )}
             {messages.map((msg) => (
               <div key={msg.id + msg.created_at} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
