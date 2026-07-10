@@ -21,7 +21,7 @@ export default function SEOPage() {
     if (!url) return;
     setLoading(true);
     try {
-      const resp = await fetch("http://localhost:8002/run/audit", {
+      const resp = await fetch("/agents/seo/run/audit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),

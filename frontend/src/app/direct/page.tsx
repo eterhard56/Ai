@@ -18,9 +18,7 @@ export default function DirectPage() {
   const runAnalysis = async () => {
     setLoading(true);
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL?.replace("/api/v1", "") || "http://localhost:8000"}/api/v1/agents`, { method: "GET" });
-      const agentUrl = "http://localhost:8001/run/analyze";
-      await fetch(agentUrl, { method: "POST" }).catch(() => {});
+      await fetch("/agents/direct/run/analyze", { method: "POST" });
       const updated = await api.getRecommendations("agent_slug=direct");
       setRecs(updated);
     } finally {

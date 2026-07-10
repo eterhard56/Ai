@@ -16,11 +16,36 @@ const statCards = [
   { key: "recent_errors", label: "Ошибки", icon: Activity, color: "text-red-400" },
 ] as const;
 
+const systemChecks = [
+  { name: "Backend API", url: "/health" },
+  { name: "Ollama LLM", url: "/health", key: "ollama" },
+  { name: "Direct Agent", url: "/agents/direct/health" },
+  { name: "SEO Agent", url: "/agents/seo/health" },
+  { name: "Parser Agent", url: "/agents/parser/health" },
+  { name: "CRM Agent", url: "/agents/crm/health" },
+];
+
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [statuses, setStatuses] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     api.getDashboardStats().then(setStats).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    systemChecks.forEach(async (check) => {
+      try {
+        const res = await fetch(check.url);
+        const data = await res.json();
+        const ok = check.key === "ollama"
+          ? data.ollama === "connected"
+          : res.ok && (data.status === "healthy" || data.status === "ok");
+        setStatuses((s) => ({ ...s, [check.name]: ok }));
+      } catch {
+        setStatuses((s) => ({ ...s, [check.name]: false }));
+      }
+    });
   }, []);
 
   return (
@@ -53,15 +78,18 @@ export default function DashboardPage() {
         <Card>
           <CardHeader><CardTitle>Статус системы</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            {["Ollama (qwen3:8b)", "PostgreSQL", "Redis", "Celery"].map((s) => (
-              <div key={s} className="flex items-center justify-between rounded-lg bg-muted/30 px-4 py-3">
-                <span className="text-sm">{s}</span>
-                <span className="flex items-center gap-2 text-xs text-green-400">
-                  <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
-                  Active
-                </span>
-              </div>
-            ))}
+            {systemChecks.map((check) => {
+              const ok = statuses[check.name];
+              return (
+                <div key={check.name} className="flex items-center justify-between rounded-lg bg-muted/30 px-4 py-3">
+                  <span className="text-sm">{check.name}</span>
+                  <span className={`flex items-center gap-2 text-xs ${ok === undefined ? "text-muted-foreground" : ok ? "text-green-400" : "text-red-400"}`}>
+                    <span className={`h-2 w-2 rounded-full ${ok === undefined ? "bg-muted-foreground animate-pulse" : ok ? "bg-green-400" : "bg-red-400"}`} />
+                    {ok === undefined ? "..." : ok ? "Active" : "Offline"}
+                  </span>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
 

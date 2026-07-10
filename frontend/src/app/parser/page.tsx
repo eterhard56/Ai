@@ -20,7 +20,7 @@ export default function ParserPage() {
   const runParser = async () => {
     setLoading(true);
     try {
-      await fetch("http://localhost:8005/run/parse", {
+      await fetch("/agents/parser/run/parse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query, city: "moscow", limit: 20 }),
