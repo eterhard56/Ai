@@ -1,4 +1,5 @@
 import importlib.util
+import os
 import sys
 from pathlib import Path
 from typing import Any, Protocol
@@ -18,8 +19,9 @@ class AgentPlugin(Protocol):
 
 
 class PluginLoader:
-    def __init__(self, plugins_dir: str = "/app/config/plugins"):
-        self.plugins_dir = Path(plugins_dir)
+    def __init__(self, plugins_dir: str | None = None):
+        default_dir = os.getenv("PLUGINS_DIR", "/app/config/plugins")
+        self.plugins_dir = Path(plugins_dir or default_dir)
         self.plugins_dir.mkdir(parents=True, exist_ok=True)
         self._loaded: dict[str, Any] = {}
 

@@ -1,10 +1,12 @@
 import logging
+import os
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 
-def setup_logging(name: str = "ai-platform", log_dir: str = "/app/logs") -> logging.Logger:
+def setup_logging(name: str = "ai-platform", log_dir: str | None = None) -> logging.Logger:
+    log_dir = log_dir or os.getenv("LOG_DIR", "/app/logs")
     Path(log_dir).mkdir(parents=True, exist_ok=True)
 
     logger = logging.getLogger(name)
