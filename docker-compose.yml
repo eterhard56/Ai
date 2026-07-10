@@ -1,0 +1,348 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-platform-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ai_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-ai_platform}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-strong-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./backups:/backups
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ai_platform}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-platform
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai-platform-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-platform
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ai-platform-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - ai-platform
+    # Uncomment for NVIDIA GPU support:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: ai-platform-ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    volumes:
+      - ollama_data:/root/.ollama
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Pulling qwen3:8b model..."
+        OLLAMA_HOST=http://ollama:11434 ollama pull qwen3:8b
+        echo "Model qwen3:8b ready"
+    networks:
+      - ai-platform
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ai-platform-backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      OLLAMA_HOST: http://ollama:11434
+    volumes:
+      - ./logs/backend:/app/logs
+      - ./storage:/app/storage
+      - ./config:/app/config:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - ai-platform
+
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ai-platform-celery-worker
+    restart: unless-stopped
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=4
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      OLLAMA_HOST: http://ollama:11434
+    volumes:
+      - ./logs/celery:/app/logs
+      - ./storage:/app/storage
+    depends_on:
+      - backend
+      - redis
+      - postgres
+    networks:
+      - ai-platform
+
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ai-platform-celery-beat
+    restart: unless-stopped
+    command: celery -A app.celery_app beat --loglevel=info
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+    volumes:
+      - ./logs/celery:/app/logs
+    depends_on:
+      - celery-worker
+    networks:
+      - ai-platform
+
+  agent-direct:
+    build:
+      context: ./agents
+      dockerfile: direct/Dockerfile
+    container_name: ai-platform-agent-direct
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      OLLAMA_HOST: http://ollama:11434
+      BACKEND_URL: http://backend:8000
+    volumes:
+      - ./logs/agents/direct:/app/logs
+    ports:
+      - "8001:8001"
+    depends_on:
+      - backend
+      - ollama
+    networks:
+      - ai-platform
+
+  agent-seo:
+    build:
+      context: ./agents
+      dockerfile: seo/Dockerfile
+    container_name: ai-platform-agent-seo
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      OLLAMA_HOST: http://ollama:11434
+      BACKEND_URL: http://backend:8000
+    volumes:
+      - ./logs/agents/seo:/app/logs
+    ports:
+      - "8002:8002"
+    depends_on:
+      - backend
+      - ollama
+    networks:
+      - ai-platform
+
+  agent-analytics:
+    build:
+      context: ./agents
+      dockerfile: analytics/Dockerfile
+    container_name: ai-platform-agent-analytics
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      OLLAMA_HOST: http://ollama:11434
+      BACKEND_URL: http://backend:8000
+    volumes:
+      - ./logs/agents/analytics:/app/logs
+    ports:
+      - "8003:8003"
+    depends_on:
+      - backend
+      - ollama
+    networks:
+      - ai-platform
+
+  agent-crm:
+    build:
+      context: ./agents
+      dockerfile: crm/Dockerfile
+    container_name: ai-platform-agent-crm
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      OLLAMA_HOST: http://ollama:11434
+      BACKEND_URL: http://backend:8000
+    volumes:
+      - ./logs/agents/crm:/app/logs
+    ports:
+      - "8004:8004"
+    depends_on:
+      - backend
+    networks:
+      - ai-platform
+
+  agent-parser:
+    build:
+      context: ./agents
+      dockerfile: parser/Dockerfile
+    container_name: ai-platform-agent-parser
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      OLLAMA_HOST: http://ollama:11434
+      BACKEND_URL: http://backend:8000
+      PARSER_2GIS_URL: ${PARSER_2GIS_URL:-http://host.docker.internal:8080}
+    volumes:
+      - ./logs/agents/parser:/app/logs
+      - ./storage/parser:/app/storage
+    ports:
+      - "8005:8005"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - backend
+      - ollama
+    networks:
+      - ai-platform
+
+  agent-telegram:
+    build:
+      context: ./agents
+      dockerfile: telegram/Dockerfile
+    container_name: ai-platform-agent-telegram
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      BACKEND_URL: http://backend:8000
+    volumes:
+      - ./logs/agents/telegram:/app/logs
+    ports:
+      - "8006:8006"
+    depends_on:
+      - backend
+    networks:
+      - ai-platform
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
+    container_name: ai-platform-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - ai-platform
+
+  nginx:
+    image: nginx:alpine
+    container_name: ai-platform-nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - ai-platform
+
+  backup:
+    build:
+      context: ./docker/backup
+      dockerfile: Dockerfile
+    container_name: ai-platform-backup
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+    volumes:
+      - ./backups:/backups
+      - ./docker/backup/scripts:/scripts:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ai-platform
+
+volumes:
+  postgres_data:
+  redis_data:
+  ollama_data:
+
+networks:
+  ai-platform:
+    driver: bridge

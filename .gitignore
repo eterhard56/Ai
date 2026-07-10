@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+frontend/.next/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/**/*.log
+*.log
+
+# Storage & backups
+storage/**
+!storage/.gitkeep
+backups/**
+!backups/.gitkeep
+
+# Next.js
+frontend/.next/
+frontend/out/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
