@@ -1,11 +1,15 @@
 """Parser Agent - 2GIS integration and company analysis."""
 
+import json
 import os
 import re
+import subprocess
 import sys
+import tempfile
 import uuid
 from datetime import datetime, timezone
-from urllib.parse import urlparse
+from pathlib import Path
+from urllib.parse import quote, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -75,10 +79,93 @@ class ParseRequest(BaseModel):
 
 class Parser2GISClient:
     def __init__(self):
-        self.base_url = os.getenv("PARSER_2GIS_URL", "http://host.docker.internal:8080")
+        self.base_url = os.getenv("PARSER_2GIS_URL", "")
         self.api_key = os.getenv("PARSER_2GIS_API_KEY", "")
+        self.cli_bin = os.getenv(
+            "PARSER_2GIS_BIN",
+            "/opt/client-finder/parser-2gis/venv/bin/parser-2gis",
+        )
+
+    def _build_2gis_url(self, city: str, query: str) -> str:
+        city_map = {
+            "moscow": "moscow", "москва": "moscow",
+            "spb": "spb", "санкт-петербург": "spb", "петербург": "spb",
+            "novosibirsk": "novosibirsk", "екатеринбург": "ekaterinburg",
+        }
+        city_slug = city_map.get(city.lower().strip(), city.lower().strip())
+        return f"https://2gis.ru/{city_slug}/search/{quote(query.strip())}"
+
+    def _parse_xlsx_results(self, path: Path) -> list[dict]:
+        try:
+            import openpyxl
+        except ImportError:
+            logger.warning("openpyxl not installed, cannot read parser output")
+            return []
+
+        wb = openpyxl.load_workbook(path, read_only=True)
+        ws = wb.active
+        rows = list(ws.iter_rows(values_only=True))
+        if not rows:
+            return []
+        headers = [str(h or "").strip() for h in rows[0]]
+        results = []
+        for row in rows[1:]:
+            data = {headers[i]: row[i] for i in range(min(len(headers), len(row)))}
+            name = data.get("Название") or data.get("name") or ""
+            if not name:
+                continue
+            website = data.get("Сайт") or data.get("website")
+            results.append({
+                "name": str(name),
+                "address": data.get("Адрес") or data.get("address"),
+                "phone": data.get("Телефон") or data.get("phone"),
+                "website": str(website) if website else None,
+                "source_url": data.get("2GIS URL"),
+            })
+        wb.close()
+        return results
+
+    async def _search_cli(self, query: str, city: str, limit: int) -> list[dict]:
+        parser = Path(self.cli_bin)
+        if not parser.is_file():
+            logger.warning(f"parser-2gis CLI not found: {self.cli_bin}")
+            return []
+
+        url = self._build_2gis_url(city, query)
+        logger.info(f"Running parser-2gis CLI: {url}")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "companies.xlsx"
+            cmd = [
+                str(parser), "-i", url, "-o", str(output), "-f", "xlsx",
+                "--chrome.headless", "yes", "--parser.max-records", str(limit),
+            ]
+            chrome = os.getenv("CHROME_BINARY_PATH", "")
+            if chrome:
+                cmd.extend(["--chrome.binary_path", chrome])
+
+            try:
+                proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+                if proc.returncode != 0:
+                    logger.warning(f"parser-2gis failed: {proc.stderr[:500]}")
+                    return []
+            except subprocess.TimeoutExpired:
+                logger.warning("parser-2gis timeout")
+                return []
+
+            if not output.exists():
+                return []
+            return self._parse_xlsx_results(output)
 
     async def search(self, query: str, city: str, limit: int) -> list[dict]:
+        # Prefer existing CLI parser (does not touch client-finder)
+        if self.cli_bin and Path(self.cli_bin).is_file():
+            return await self._search_cli(query, city, limit)
+
+        # Fallback: HTTP API if configured
+        if not self.base_url:
+            return []
+
         headers = {}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
@@ -93,7 +180,7 @@ class Parser2GISClient:
                 if resp.status_code == 200:
                     return resp.json().get("results", [])
         except Exception as e:
-            logger.warning(f"parser-2gis unavailable: {e}")
+            logger.warning(f"parser-2gis API unavailable: {e}")
 
         return []
 
