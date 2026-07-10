@@ -42,8 +42,11 @@ from app.services.plugin_loader import plugin_loader
 from app.services.chat_context import (
     CHAT_SYSTEM_PROMPT,
     build_platform_context,
+    conversation_about_direct,
     direct_fallback_response,
+    direct_why_response,
     is_refusal,
+    is_why_followup,
     mentions_direct,
     try_run_direct_agent,
 )
@@ -280,10 +283,10 @@ async def send_chat_message(
     history = history_result.scalars().all()
 
     agent_note = None
-    if mentions_direct(data.content):
+    if conversation_about_direct(history, data.content):
         agent_note = await try_run_direct_agent()
 
-    platform_context = build_platform_context(data.content, agent_note)
+    platform_context = build_platform_context(data.content, agent_note, history)
     messages: list[dict] = [{"role": "system", "content": CHAT_SYSTEM_PROMPT}]
     if platform_context:
         messages.append({"role": "system", "content": platform_context})
@@ -300,10 +303,14 @@ async def send_chat_message(
     if not response_text:
         raise HTTPException(status_code=503, detail="Ollama вернул пустой ответ. Проверьте модель.")
 
-    if mentions_direct(data.content) and is_refusal(response_text):
+    if conversation_about_direct(history, data.content):
         token_ok = bool(os.getenv("YANDEX_DIRECT_TOKEN", ""))
-        response_text = direct_fallback_response(token_ok)
-        if agent_note:
+        use_template = is_why_followup(data.content) or is_refusal(response_text)
+        if is_why_followup(data.content):
+            response_text = direct_why_response(token_ok)
+        elif is_refusal(response_text):
+            response_text = direct_fallback_response(token_ok)
+        if agent_note and use_template:
             response_text = f"{agent_note}\n\n{response_text}"
 
     assistant_msg = ChatMessage(session_id=session_id, role="assistant", content=response_text)
