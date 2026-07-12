@@ -1,0 +1,50 @@
+services:
+  wg-easy:
+    image: ghcr.io/wg-easy/wg-easy:14
+    container_name: vpn-wg-easy
+    hostname: vpn-wg-easy
+    networks:
+      - vpn-network
+    environment:
+      LANG: ru
+      WG_HOST: ${WG_HOST:-153.80.246.217}
+      # PASSWORD_HASH is injected at deploy time into docker-compose.deploy.yml
+      # Do NOT use .env for bcrypt hash — docker compose interpolates $ and corrupts it
+      PASSWORD_HASH: ${WG_PASSWORD_HASH}
+      PORT: "51821"
+      WG_PORT: "51820"
+      WG_DEFAULT_DNS: 1.1.1.1,8.8.8.8
+      WG_ALLOWED_IPS: 0.0.0.0/0,::/0
+      WG_PERSISTENT_KEEPALIVE: "25"
+      UI_TRAFFIC_STATS: "true"
+    volumes:
+      - ./data:/etc/wireguard
+    ports:
+      - "51820:51820/udp"
+      - "127.0.0.1:51821:51821/tcp"
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      net.ipv4.ip_forward: "1"
+      net.ipv4.conf.all.src_valid_mark: "1"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:51821/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  vpn-network:
+    name: vpn-network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
