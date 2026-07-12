@@ -22,7 +22,7 @@ TEMPLATE = {
         "tag": "api",
     },
     "dns": {
-        "servers": ["8.8.8.8", "1.1.1.1", "localhost"],
+        "servers": ["1.1.1.1", "8.8.8.8"],
         "queryStrategy": "UseIPv4",
         "disableCache": False,
         "tag": "dns-internal",
