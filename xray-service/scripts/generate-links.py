@@ -56,14 +56,15 @@ def build_json_config(c: dict) -> dict:
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--credentials", required=True)
-    p.add_argument("--sub-port", type=int, default=2087)
+    p.add_argument("--sub-domain", default="")
     p.add_argument("--server-ip", required=True)
     p.add_argument("--output", required=True)
     args = p.parse_args()
 
     c = parse_credentials(Path(args.credentials))
     vless = build_vless_link(c)
-    sub_url = f"http://{args.server_ip}:{args.sub_port}/sub/happ-admin"
+    sub_domain = args.sub_domain or args.server_ip
+    sub_url = f"https://{sub_domain}/sub/happ-admin"
 
     out = {
         "panel_url": f"http://{args.server_ip}:2083/",

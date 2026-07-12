@@ -45,6 +45,8 @@ def main():
     p.add_argument("--inbound-port", type=int, default=8444)
     p.add_argument("--client-email", default="admin")
     p.add_argument("--server-ip", required=True)
+    p.add_argument("--sub-domain", default="")
+    p.add_argument("--sub-uri", default="")
     args = p.parse_args()
 
     base = f"http://{args.host}:{args.port}"
@@ -126,13 +128,17 @@ def main():
         raise RuntimeError(result.get("msg", "add inbound failed"))
 
     panel_settings = request(cj, base, csrf, "/panel/api/setting/all")["obj"]
+    sub_domain = args.sub_domain or args.server_ip
+    sub_uri = args.sub_uri or f"https://{sub_domain}/sub/"
     panel_settings.update({
         "subEnable": True,
         "subJsonEnable": True,
-        "subURI": f"http://{args.server_ip}:2087/sub/",
+        "subURI": sub_uri,
         "subPath": "/sub/",
-        "subPort": "2096",
-        "subDomain": args.server_ip,
+        "subPort": 2096,
+        "subDomain": sub_domain,
+        "subEncrypt": True,
+        "subUpdates": 12,
     })
     request(cj, base, csrf, "/panel/api/setting/update", panel_settings)
     request(cj, base, csrf, "/panel/api/server/restartXrayService", None)
