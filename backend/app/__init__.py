@@ -1,0 +1,1 @@
+"""AI Platform Backend Application."""
