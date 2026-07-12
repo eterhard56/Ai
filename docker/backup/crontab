@@ -1,0 +1,1 @@
+0 3 * * * /scripts/backup.sh >> /backups/backup.log 2>&1
