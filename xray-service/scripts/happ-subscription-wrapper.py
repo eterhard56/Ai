@@ -33,6 +33,8 @@ def wrap_subscription(path: str, host: str) -> bytes:
         body = base64.b64decode(raw).decode()
     except Exception:
         body = raw.decode()
+    # Public Reality endpoint is 443 (nginx stream SNI passthrough -> xray 8444)
+    body = body.replace(":8444", ":443")
     wrapped = PREFIX + body
     return base64.b64encode(wrapped.encode())
 
