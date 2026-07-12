@@ -75,8 +75,8 @@ def main():
         "realitySettings": {
             "show": False,
             "xver": 0,
-            "dest": "www.microsoft.com:443",
-            "serverNames": ["www.microsoft.com"],
+            "dest": "www.cloudflare.com:443",
+            "serverNames": ["www.cloudflare.com"],
             "privateKey": priv,
             "minClientVer": "",
             "maxClientVer": "",
