@@ -13,6 +13,8 @@
   --color-mist: #e8ebe6;
   --color-paper: #f4f6f2;
   --color-tile: #ffffff;
+  --color-wb: #cb11ab;
+  --color-sale: #f83263;
 }
 
 @layer base {
@@ -25,13 +27,21 @@
     min-width: 320px;
     font-family: var(--font-sans);
     color: var(--color-smoke);
-    background: #f0f2ef;
+    background:
+      radial-gradient(1200px 480px at 10% -10%, #dfe8e1 0%, transparent 55%),
+      radial-gradient(900px 420px at 100% 0%, #e7e2d4 0%, transparent 50%),
+      #eef1ed;
     -webkit-font-smoothing: antialiased;
   }
 
   ::selection {
     background: color-mix(in oklab, var(--color-gold) 45%, white);
     color: var(--color-forest-deep);
+  }
+
+  :focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--color-forest) 55%, white);
+    outline-offset: 2px;
   }
 }
 
@@ -45,5 +55,17 @@
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+  }
+
+  .hero-wash {
+    background:
+      linear-gradient(
+        105deg,
+        rgba(12, 31, 24, 0.88) 0%,
+        rgba(22, 53, 40, 0.72) 42%,
+        rgba(22, 53, 40, 0.35) 70%,
+        rgba(22, 53, 40, 0.15) 100%
+      ),
+      var(--hero-image) center / cover no-repeat;
   }
 }

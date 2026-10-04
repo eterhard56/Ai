@@ -22,6 +22,8 @@ type CartContextValue = {
   clear: () => void
   open: boolean
   setOpen: (v: boolean) => void
+  lastAdded: Product | null
+  clearLastAdded: () => void
 }
 
 const CartContext = createContext<CartContextValue | null>(null)
@@ -29,6 +31,7 @@ const CartContext = createContext<CartContextValue | null>(null)
 export function CartProvider({ children }: { children: ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([])
   const [open, setOpen] = useState(false)
+  const [lastAdded, setLastAdded] = useState<Product | null>(null)
 
   const value = useMemo<CartContextValue>(() => {
     const add = (product: Product, qty = 1) => {
@@ -43,14 +46,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
         return [...prev, { product, qty }]
       })
-      setOpen(true)
+      setLastAdded(product)
     }
 
     const setQty = (id: string, qty: number) => {
       setLines((prev) =>
         prev
           .map((l) =>
-            l.product.id === id ? { ...l, qty: Math.max(0, Math.min(20, qty)) } : l,
+            l.product.id === id
+              ? { ...l, qty: Math.max(0, Math.min(20, qty)) }
+              : l,
           )
           .filter((l) => l.qty > 0),
       )
@@ -61,12 +66,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
 
     const clear = () => setLines([])
+    const clearLastAdded = () => setLastAdded(null)
 
     const count = lines.reduce((s, l) => s + l.qty, 0)
     const total = lines.reduce((s, l) => s + l.qty * l.product.price, 0)
 
-    return { lines, count, total, add, setQty, remove, clear, open, setOpen }
-  }, [lines, open])
+    return {
+      lines,
+      count,
+      total,
+      add,
+      setQty,
+      remove,
+      clear,
+      open,
+      setOpen,
+      lastAdded,
+      clearLastAdded,
+    }
+  }, [lines, open, lastAdded])
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>
 }
