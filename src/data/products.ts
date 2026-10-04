@@ -1,0 +1,358 @@
+export type Unit = 'кг' | 'шт'
+
+export type CategoryId =
+  | 'sausages'
+  | 'links'
+  | 'delicacies'
+  | 'prepared'
+  | 'dairy'
+
+/** Остаток без 1С: грубо, но достаточно для витрины */
+export type Stock = 'in_stock' | 'low' | 'out'
+
+export type Product = {
+  id: string
+  name: string
+  category: CategoryId
+  price: number
+  /** Старая цена — для зачёркивания как на WB/Ozon */
+  oldPrice?: number
+  unit: Unit
+  description: string
+  note?: string
+  badge?: 'hit' | 'sale' | 'new'
+  image: string
+  available: boolean
+  /** Если нет — считаем in_stock */
+  stock?: Stock
+  /** Рейтинг 0–5 для строки ★ как на маркетплейсе */
+  rating?: number
+  reviews?: number
+}
+
+export const stockLabel: Record<Stock, string> = {
+  in_stock: 'В наличии',
+  low: 'Мало',
+  out: 'Нет',
+}
+
+export const categories: { id: CategoryId; title: string; blurb: string }[] = [
+  { id: 'sausages', title: 'Колбасы', blurb: 'Вареные, копчёные, запечённые' },
+  { id: 'links', title: 'Сосиски', blurb: 'Говяжьи, молочные, для жарки' },
+  { id: 'delicacies', title: 'Деликатесы', blurb: 'Грудинка, рулеты, сало' },
+  { id: 'prepared', title: 'Готовое', blurb: 'Холодец, заливное, под заказ' },
+  { id: 'dairy', title: 'Сыры', blurb: 'Авторские сыры и масло' },
+]
+
+export const defaultProducts: Product[] = [
+  {
+    id: 'krakow-premium',
+    name: 'Краковская «Премиум»',
+    category: 'sausages',
+    price: 670,
+    unit: 'кг',
+    badge: 'hit',
+    available: true,
+    rating: 4.9,
+    reviews: 48,
+    image: '/images/case-4.jpg',
+    description:
+      'Плотная копчёная колбаса. Хороша к столу и на нарезку. Вакуум — удобно для доставки.',
+  },
+  {
+    id: 'krakow',
+    name: 'Краковская',
+    category: 'sausages',
+    price: 670,
+    unit: 'кг',
+    available: true,
+    rating: 4.7,
+    reviews: 31,
+    image: '/images/case-4.jpg',
+    description: 'Классическая краковская. Насыщенный вкус для бутербродов и праздничной нарезки.',
+  },
+  {
+    id: 'turkey-cheese',
+    name: 'Колбаса индюшачья с сыром',
+    category: 'sausages',
+    price: 830,
+    unit: 'кг',
+    badge: 'new',
+    available: true,
+    rating: 4.8,
+    reviews: 12,
+    image: '/images/case-4.jpg',
+    description: 'Нежная индейка с кусочками сыра. Лёгкий вариант из птицы.',
+  },
+  {
+    id: 'wood-baked',
+    name: 'Колбаса печёная на дровах',
+    category: 'sausages',
+    price: 745,
+    unit: 'кг',
+    available: true,
+    rating: 4.6,
+    reviews: 19,
+    image: '/images/case-4.jpg',
+    description: 'Запечённая на дровах — с дымком и плотной текстурой.',
+  },
+  {
+    id: 'farmers',
+    name: 'Фермерская',
+    category: 'sausages',
+    price: 370,
+    oldPrice: 450,
+    unit: 'кг',
+    badge: 'sale',
+    available: true,
+    stock: 'low',
+    rating: 4.5,
+    reviews: 67,
+    image: '/images/case-3.jpg',
+    description: 'Домашний вкус по доступной цене. На каждый день для семьи.',
+  },
+  {
+    id: 'beef-garlic',
+    name: 'Говяжья с чесноком',
+    category: 'sausages',
+    price: 410,
+    unit: 'кг',
+    available: true,
+    rating: 4.6,
+    reviews: 22,
+    image: '/images/case-3.jpg',
+    description: 'Говяжья колбаса с чесноком. К борщу и на закуску.',
+  },
+  {
+    id: 'beef-sausages',
+    name: 'Сосиски говяжьи',
+    category: 'links',
+    price: 560,
+    unit: 'кг',
+    available: true,
+    rating: 4.7,
+    reviews: 40,
+    image: '/images/case-1.jpg',
+    description: 'Говяжьи сосиски для завтрака. Варятся быстро, вкус мягкий.',
+  },
+  {
+    id: 'milk-sausages',
+    name: 'Сосиски молочные',
+    category: 'links',
+    price: 390,
+    oldPrice: 420,
+    unit: 'кг',
+    available: true,
+    rating: 4.4,
+    reviews: 55,
+    image: '/images/case-1.jpg',
+    description: 'Классические молочные сосиски. Привычный вкус на каждый день.',
+  },
+  {
+    id: 'ukrainian',
+    name: 'Колбаски украинские',
+    category: 'links',
+    price: 600,
+    unit: 'кг',
+    badge: 'hit',
+    available: true,
+    rating: 4.9,
+    reviews: 73,
+    image: '/images/case-1.jpg',
+    description: 'Для жарки и гриля. С хрустящей корочкой и сочной начинкой.',
+  },
+  {
+    id: 'brisket',
+    name: 'Грудинка',
+    category: 'delicacies',
+    price: 685,
+    unit: 'кг',
+    available: true,
+    rating: 4.8,
+    reviews: 28,
+    image: '/images/case-1.jpg',
+    description: 'Копчёная грудинка с прослойками. Для нарезки и к гарниру.',
+  },
+  {
+    id: 'buzhenina',
+    name: 'Буженина',
+    category: 'delicacies',
+    price: 775,
+    unit: 'кг',
+    available: true,
+    rating: 4.7,
+    reviews: 21,
+    image: '/images/case-1.jpg',
+    description: 'Запечённая буженина. Мягкая и ароматная — к праздничному столу.',
+  },
+  {
+    id: 'lard-spices',
+    name: 'Сало в специях',
+    category: 'delicacies',
+    price: 690,
+    unit: 'кг',
+    available: true,
+    rating: 4.6,
+    reviews: 34,
+    image: '/images/case-1.jpg',
+    description: 'Сало в смеси специй. К чёрному хлебу и чесноку.',
+  },
+  {
+    id: 'chicken-roll',
+    name: 'Рулет куриный с грибами',
+    category: 'delicacies',
+    price: 785,
+    unit: 'кг',
+    badge: 'hit',
+    available: true,
+    rating: 4.9,
+    reviews: 41,
+    image: '/images/case-1.jpg',
+    description: 'Куриный рулет с грибами. Готов к нарезке и подаче.',
+  },
+  {
+    id: 'liver-roll',
+    name: 'Рулет с печенью',
+    category: 'delicacies',
+    price: 650,
+    unit: 'кг',
+    available: true,
+    rating: 4.5,
+    reviews: 16,
+    image: '/images/case-4.jpg',
+    description: 'Рулет с печёночной начинкой. Удобно нарезать к столу.',
+  },
+  {
+    id: 'kholodets-beef',
+    name: 'Холодец говяжий с горчицей',
+    category: 'prepared',
+    price: 220,
+    unit: 'шт',
+    available: true,
+    rating: 4.7,
+    reviews: 25,
+    image: '/images/case-3.jpg',
+    description: 'Говяжий холодец с горчицей. Порционная упаковка, готов к подаче.',
+  },
+  {
+    id: 'kholodets-pork',
+    name: 'Холодец свиной с горчицей',
+    category: 'prepared',
+    price: 180,
+    unit: 'шт',
+    available: true,
+    rating: 4.5,
+    reviews: 18,
+    image: '/images/case-3.jpg',
+    description: 'Свиной холодец с горчицей. Порция на 1–2 человека.',
+  },
+  {
+    id: 'zalivnoe-tongue',
+    name: 'Заливное с языком',
+    category: 'prepared',
+    price: 740,
+    unit: 'кг',
+    available: true,
+    rating: 4.8,
+    reviews: 14,
+    image: '/images/case-3.jpg',
+    description: 'Заливное с языком. Праздничное блюдо — можно заказать заранее.',
+  },
+  {
+    id: 'zalivnoe-goose',
+    name: 'Заливное гусиное с овощами',
+    category: 'prepared',
+    price: 500,
+    unit: 'кг',
+    available: true,
+    rating: 4.6,
+    reviews: 11,
+    image: '/images/case-3.jpg',
+    description: 'Гусиное заливное с овощами. К праздничному столу.',
+  },
+  {
+    id: 'cod-liver',
+    name: 'Печень трески натуральная',
+    category: 'prepared',
+    price: 620,
+    unit: 'шт',
+    available: true,
+    stock: 'low',
+    rating: 4.4,
+    reviews: 9,
+    image: '/images/case-3.jpg',
+    description: 'Натуральная печень трески. К салатам и на бутерброды.',
+  },
+  {
+    id: 'black-cheese',
+    name: 'Сыр чёрный с цедрой лимона',
+    category: 'dairy',
+    price: 1060,
+    unit: 'кг',
+    badge: 'new',
+    available: true,
+    rating: 4.9,
+    reviews: 8,
+    image: '/images/case-2.jpg',
+    description: 'Авторский чёрный сыр с цедрой лимона. Необычный вид и яркий вкус.',
+  },
+  {
+    id: 'hemp-cheese',
+    name: 'Сыр с семенами конопли',
+    category: 'dairy',
+    price: 1055,
+    unit: 'кг',
+    badge: 'new',
+    available: true,
+    rating: 4.8,
+    reviews: 7,
+    image: '/images/case-2.jpg',
+    description: 'Зелёный сыр с семенами конопли. Ореховые нотки на тарелке.',
+  },
+  {
+    id: 'butter',
+    name: 'Масло традиционное 82,5%',
+    category: 'dairy',
+    price: 550,
+    unit: 'шт',
+    note: '500 г',
+    available: true,
+    rating: 4.7,
+    reviews: 30,
+    image: '/images/case-2.jpg',
+    description: 'Сливочное масло 82,5%. Упаковка 500 г.',
+  },
+  {
+    id: 'cream-cheese',
+    name: 'Сыр творожный Bonfesta',
+    category: 'dairy',
+    price: 165,
+    unit: 'шт',
+    note: '140 г',
+    available: true,
+    rating: 4.5,
+    reviews: 44,
+    image: '/images/case-2.jpg',
+    description: 'Мягкий творожный сыр 140 г. Для бутербродов и роллов.',
+  },
+]
+
+export const shop = {
+  name: 'РАЗ!Колбас',
+  shortName: 'Раз!Колбас56',
+  tagline: 'Фермерские продукты',
+  city: 'Оренбург',
+  phone: '+79128462244',
+  phoneDisplay: '+7 (912) 846-22-44',
+  contact: 'Андрей',
+  maxAdminUrl: '',
+  adminPassword: 'razkolbas',
+}
+
+export const imageOptions = [
+  { value: '/images/case-1.jpg', label: 'Деликатесы' },
+  { value: '/images/case-2.jpg', label: 'Сыры' },
+  { value: '/images/case-3.jpg', label: 'Колбасы / готовое' },
+  { value: '/images/case-4.jpg', label: 'Копчёности' },
+  { value: '/images/logo-mark.jpg', label: 'Логотип' },
+]
