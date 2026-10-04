@@ -273,7 +273,7 @@ function ShopPage({
               Каталог
             </h2>
             <p className="text-xs text-smoke/50 sm:text-sm">
-              {filtered.length} товаров · таблички как на маркетплейсе
+              {productWord(filtered.length)} · таблички как на маркетплейсе
             </p>
           </div>
           <a
@@ -437,6 +437,16 @@ function HowItWorks() {
   )
 }
 
+function productWord(n: number) {
+  const mod10 = n % 10
+  const mod100 = n % 100
+  if (mod10 === 1 && mod100 !== 11) return `${n} товар`
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+    return `${n} товара`
+  }
+  return `${n} товаров`
+}
+
 function Chip({
   active,
   onClick,
@@ -452,7 +462,7 @@ function Chip({
       onClick={onClick}
       className={`shrink-0 rounded-full px-3 py-1.5 text-sm transition ${
         active
-          ? 'bg-[#481173] text-white'
+          ? 'bg-forest text-white'
           : 'bg-white text-smoke ring-1 ring-black/8 hover:ring-black/20'
       }`}
     >
