@@ -7,6 +7,9 @@ export type CategoryId =
   | 'prepared'
   | 'dairy'
 
+/** Остаток без 1С: грубо, но достаточно для витрины */
+export type Stock = 'in_stock' | 'low' | 'out'
+
 export type Product = {
   id: string
   name: string
@@ -20,9 +23,17 @@ export type Product = {
   badge?: 'hit' | 'sale' | 'new'
   image: string
   available: boolean
+  /** Если нет — считаем in_stock */
+  stock?: Stock
   /** Рейтинг 0–5 для строки ★ как на маркетплейсе */
   rating?: number
   reviews?: number
+}
+
+export const stockLabel: Record<Stock, string> = {
+  in_stock: 'В наличии',
+  low: 'Мало',
+  out: 'Нет',
 }
 
 export const categories: { id: CategoryId; title: string; blurb: string }[] = [

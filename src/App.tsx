@@ -17,8 +17,10 @@ import {
   categories,
   imageOptions,
   shop,
+  stockLabel,
   type CategoryId,
   type Product,
+  type Stock,
   type Unit,
 } from './data/products'
 import {
@@ -204,12 +206,36 @@ function ShopPage({
       </section>
 
       <OrderBlock />
+      <section className="border-t border-forest/10 bg-forest text-white">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-5">
+          <h2 className="text-xl font-bold sm:text-2xl">
+            Как показать Андрею за 1 минуту
+          </h2>
+          <ol className="mt-3 space-y-2 text-sm text-white/75">
+            <li>1. Откройте каталог — таблички как на WB/Ozon</li>
+            <li>2. Добавьте 2 товара в корзину → «Отправить список в Max»</li>
+            <li>
+              3. Зайдите в админку (пароль <code className="text-gold-soft">razkolbas</code>) —
+              смените цену или нажмите «Нет»
+            </li>
+            <li>4. Вернитесь на витрину — изменения сразу видны</li>
+          </ol>
+          <button
+            type="button"
+            onClick={onAdmin}
+            className="mt-5 rounded-xl bg-gold px-5 py-3 text-sm font-semibold text-forest-deep"
+          >
+            Открыть админку «Пришла партия»
+          </button>
+        </div>
+      </section>
+
       <footer className="border-t border-forest/10 bg-white">
         <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-8 text-sm text-smoke/60 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div>
             <span className="font-semibold text-forest">{shop.name}</span>
             {' · '}
-            {shop.city} · {shop.contact}
+            {shop.city} · {shop.contact} · без предоплаты
           </div>
           <button
             type="button"
@@ -351,8 +377,12 @@ function ProductTile({
         <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-smoke/45">
           {product.description}
         </p>
-        <p className="mt-1 text-[11px] font-medium text-[#0a9b4a]">
-          Доставка по городу
+        <p
+          className={`mt-1 text-[11px] font-medium ${
+            product.stock === 'low' ? 'text-[#e6a100]' : 'text-[#0a9b4a]'
+          }`}
+        >
+          {product.stock === 'low' ? 'Осталось мало' : 'Доставка по городу'}
         </p>
       </button>
     </article>
@@ -710,6 +740,22 @@ function AdminPage({
   )
   const [password, setPassword] = useState('')
   const [editing, setEditing] = useState<Product | null>(null)
+  const [q, setQ] = useState('')
+
+  const filtered = useMemo(() => {
+    const query = q.trim().toLowerCase()
+    if (!query) return catalog.products
+    return catalog.products.filter((p) =>
+      p.name.toLowerCase().includes(query),
+    )
+  }, [catalog.products, q])
+
+  const stats = useMemo(() => {
+    const inStock = catalog.products.filter((p) => p.stock !== 'out').length
+    const low = catalog.products.filter((p) => p.stock === 'low').length
+    const out = catalog.products.filter((p) => p.stock === 'out').length
+    return { inStock, low, out }
+  }, [catalog.products])
 
   if (!authed) {
     return (
@@ -719,11 +765,11 @@ function AdminPage({
           onClick={onBack}
           className="mb-6 inline-flex items-center gap-2 text-sm text-smoke/60"
         >
-          <ArrowLeft className="h-4 w-4" /> На сайт
+          <ArrowLeft className="h-4 w-4" /> На витрину
         </button>
-        <h1 className="font-display text-3xl text-forest">Каталог</h1>
+        <h1 className="text-2xl font-bold text-forest">Админка витрины</h1>
         <p className="mt-2 text-sm text-smoke/60">
-          Вход для добавления и редактирования товаров
+          Пришла партия — меняете цены и остатки с телефона. Без 1С.
         </p>
         <form
           className="mt-6 space-y-3"
@@ -741,12 +787,13 @@ function AdminPage({
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Пароль"
+            placeholder="Пароль (по умолчанию razkolbas)"
             className="w-full rounded-xl border border-forest/15 px-3 py-3"
+            autoFocus
           />
           <button
             type="submit"
-            className="w-full rounded-xl bg-forest py-3 font-semibold text-white"
+            className="w-full rounded-xl bg-forest py-3.5 font-semibold text-white"
           >
             Войти
           </button>
@@ -756,8 +803,8 @@ function AdminPage({
   }
 
   return (
-    <div className="mx-auto min-h-svh max-w-3xl px-3 py-6 sm:px-5">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div className="mx-auto min-h-svh max-w-2xl bg-[#f3f4f6] px-3 pb-28 pt-4 sm:px-4">
+      <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <button
             type="button"
@@ -766,67 +813,56 @@ function AdminPage({
           >
             <ArrowLeft className="h-4 w-4" /> На витрину
           </button>
-          <h1 className="font-display text-3xl text-forest">Товары</h1>
-          <p className="text-sm text-smoke/55">
-            {catalog.products.length} позиций · сохраняется в этом браузере
+          <h1 className="text-2xl font-bold text-forest">Пришла партия</h1>
+          <p className="mt-1 text-sm text-smoke/55">
+            {stats.inStock} в наличии · {stats.low} мало · {stats.out} нет
           </p>
         </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setEditing(emptyProduct())}
-            className="rounded-xl bg-[#0f9d58] px-4 py-2.5 text-sm font-semibold text-white"
-          >
-            + Добавить
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (confirm('Сбросить каталог к базовому?')) catalog.reset()
-            }}
-            className="rounded-xl border border-forest/15 px-3 py-2.5 text-sm"
-          >
-            Сброс
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setEditing(emptyProduct())}
+          className="rounded-xl bg-[#0f9d58] px-3.5 py-2.5 text-sm font-semibold text-white shadow"
+        >
+          + Товар
+        </button>
       </div>
 
-      <div className="space-y-2">
-        {catalog.products.map((p) => (
-          <div
+      <div className="mb-3 rounded-2xl bg-[#163528] p-3 text-sm text-white/90">
+        <strong className="text-gold-soft">Для демо Андрею:</strong> поменяйте
+        цену или нажмите «Мало / Нет» — на витрине обновится сразу.
+      </div>
+
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Поиск товара..."
+        className="mb-3 w-full rounded-xl border-0 bg-white px-3 py-3 text-sm shadow-sm ring-1 ring-black/5"
+      />
+
+      <div className="space-y-2.5">
+        {filtered.map((p) => (
+          <AdminProductRow
             key={p.id}
-            className="flex items-center gap-3 rounded-2xl bg-white p-2.5 ring-1 ring-black/5"
-          >
-            <img src={p.image} alt="" className="h-14 w-14 rounded-xl object-cover" />
-            <div className="min-w-0 flex-1">
-              <div className="truncate font-medium">
-                {p.name}
-                {!p.available && (
-                  <span className="ml-2 text-xs text-red-500">скрыт</span>
-                )}
-              </div>
-              <div className="text-sm text-smoke/55">
-                {formatPrice(p.price)} / {p.unit}
-              </div>
-            </div>
-            <button
-              type="button"
-              className="rounded-full p-2 hover:bg-mist"
-              onClick={() => setEditing(p)}
-            >
-              <Pencil className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              className="rounded-full p-2 text-red-500 hover:bg-red-50"
-              onClick={() => {
-                if (confirm(`Удалить «${p.name}»?`)) catalog.remove(p.id)
-              }}
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </div>
+            product={p}
+            onPatch={(data) => catalog.patch(p.id, data)}
+            onEdit={() => setEditing(p)}
+            onDelete={() => {
+              if (confirm(`Удалить «${p.name}»?`)) catalog.remove(p.id)
+            }}
+          />
         ))}
+      </div>
+
+      <div className="mt-6 flex gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            if (confirm('Сбросить каталог к демо-набору?')) catalog.reset()
+          }}
+          className="rounded-xl bg-white px-3 py-2 text-sm text-smoke/60 ring-1 ring-black/5"
+        >
+          Сброс демо
+        </button>
       </div>
 
       {editing && (
@@ -839,6 +875,120 @@ function AdminPage({
           }}
         />
       )}
+    </div>
+  )
+}
+
+function AdminProductRow({
+  product,
+  onPatch,
+  onEdit,
+  onDelete,
+}: {
+  product: Product
+  onPatch: (data: Partial<Product>) => void
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  const [price, setPrice] = useState(String(product.price))
+  const stock = product.stock || 'in_stock'
+
+  useEffect(() => {
+    setPrice(String(product.price))
+  }, [product.price])
+
+  const commitPrice = () => {
+    const n = Number(price)
+    if (!n || n === product.price) {
+      setPrice(String(product.price))
+      return
+    }
+    onPatch({ price: n })
+  }
+
+  return (
+    <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-black/5">
+      <div className="flex gap-3">
+        <img
+          src={product.image}
+          alt=""
+          className="h-16 w-16 shrink-0 rounded-xl object-cover"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="truncate font-semibold text-smoke">
+                {product.name}
+              </div>
+              <div className="text-xs text-smoke/45">
+                {stockLabel[stock]} · /{product.unit}
+              </div>
+            </div>
+            <div className="flex shrink-0 gap-1">
+              <button
+                type="button"
+                onClick={onEdit}
+                className="rounded-lg bg-mist p-2"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={onDelete}
+                className="rounded-lg bg-red-50 p-2 text-red-500"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-2 flex items-center gap-2">
+            <label className="flex items-center gap-1 rounded-xl bg-mist px-2 py-1.5 text-sm">
+              <span className="text-smoke/45">₽</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                onBlur={commitPrice}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur()
+                  }
+                }}
+                className="w-20 bg-transparent font-bold text-forest outline-none"
+              />
+            </label>
+            <span className="text-xs text-smoke/40">/{product.unit}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-3 gap-1.5">
+        {(
+          [
+            ['in_stock', 'Есть', 'bg-emerald-50 text-emerald-700'],
+            ['low', 'Мало', 'bg-amber-50 text-amber-700'],
+            ['out', 'Нет', 'bg-red-50 text-red-600'],
+          ] as const
+        ).map(([value, label, cls]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() =>
+              onPatch({
+                stock: value as Stock,
+                available: value !== 'out',
+              })
+            }
+            className={`rounded-xl py-2 text-xs font-semibold transition ${
+              stock === value ? cls + ' ring-2 ring-offset-1 ring-current/20' : 'bg-mist text-smoke/50'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
@@ -864,10 +1014,13 @@ function ProductEditor({
             alert('Укажите название и цену')
             return
           }
+          const stock = draft.stock || 'in_stock'
           onSave({
             ...draft,
             name: draft.name.trim(),
-            description: draft.description.trim(),
+            description: draft.description.trim() || draft.name.trim(),
+            stock,
+            available: stock !== 'out',
           })
         }}
       >
@@ -893,7 +1046,6 @@ function ProductEditor({
         <label className="block text-sm">
           Описание
           <textarea
-            required
             rows={3}
             value={draft.description}
             onChange={(e) => setDraft({ ...draft, description: e.target.value })}
@@ -917,6 +1069,24 @@ function ProductEditor({
             />
           </label>
           <label className="block text-sm">
+            Было, ₽ (скидка)
+            <input
+              type="number"
+              min={0}
+              value={draft.oldPrice || ''}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  oldPrice: e.target.value ? Number(e.target.value) : undefined,
+                })
+              }
+              className="mt-1 w-full rounded-xl border px-3 py-2.5"
+            />
+          </label>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block text-sm">
             Ед.
             <select
               value={draft.unit}
@@ -927,6 +1097,20 @@ function ProductEditor({
             >
               <option value="кг">кг</option>
               <option value="шт">шт</option>
+            </select>
+          </label>
+          <label className="block text-sm">
+            Остаток
+            <select
+              value={draft.stock || 'in_stock'}
+              onChange={(e) =>
+                setDraft({ ...draft, stock: e.target.value as Stock })
+              }
+              className="mt-1 w-full rounded-xl border px-3 py-2.5"
+            >
+              <option value="in_stock">Есть</option>
+              <option value="low">Мало</option>
+              <option value="out">Нет</option>
             </select>
           </label>
         </div>
@@ -983,30 +1167,20 @@ function ProductEditor({
         </label>
 
         <label className="block text-sm">
-          Примечание (вес упаковки и т.п.)
+          Примечание
           <input
             value={draft.note || ''}
             onChange={(e) => setDraft({ ...draft, note: e.target.value })}
             className="mt-1 w-full rounded-xl border px-3 py-2.5"
+            placeholder="500 г, вакуум..."
           />
-        </label>
-
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={draft.available}
-            onChange={(e) =>
-              setDraft({ ...draft, available: e.target.checked })
-            }
-          />
-          Показывать на витрине
         </label>
 
         <button
           type="submit"
           className="w-full rounded-xl bg-forest py-3.5 font-semibold text-white"
         >
-          Сохранить
+          Сохранить на витрине
         </button>
       </form>
     </div>
