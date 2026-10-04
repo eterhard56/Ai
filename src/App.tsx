@@ -6,6 +6,7 @@ import {
   Phone,
   Plus,
   ShoppingBag,
+  Star,
   Trash2,
   X,
 } from 'lucide-react'
@@ -149,31 +150,27 @@ function ShopPage({
         </div>
       </header>
 
-      <section id="top" className="border-b border-forest/8 bg-forest text-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-3 py-6 sm:flex-row sm:items-end sm:justify-between sm:px-5 sm:py-8">
+      <section id="top" className="border-b border-black/5 bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-3 py-3 sm:px-5">
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-gold-soft">
-              {shop.tagline}
-            </p>
-            <h1 className="mt-1 font-display text-3xl sm:text-4xl">
-              Каталог как на витрине
+            <h1 className="text-lg font-bold text-smoke sm:text-xl">
+              Каталог товаров
             </h1>
-            <p className="mt-2 max-w-xl text-sm text-white/70">
-              Выберите товары → оформите заказ → список уйдёт админу в Max.
-              Без предоплаты, доставка по Оренбургу.
+            <p className="text-xs text-smoke/50 sm:text-sm">
+              {filtered.length} товаров · доставка по Оренбургу · без предоплаты
             </p>
           </div>
           <a
             href="#order"
-            className="inline-flex items-center justify-center rounded-full bg-gold px-5 py-2.5 text-sm font-semibold text-forest-deep"
+            className="shrink-0 rounded-lg bg-[#cb11ab] px-3 py-2 text-xs font-semibold text-white sm:text-sm"
           >
-            Оформить заказ
+            Оформить
           </a>
         </div>
       </section>
 
-      <section id="catalog" className="mx-auto max-w-7xl px-2 py-4 sm:px-5 sm:py-6">
-        <div className="mb-3 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <section id="catalog" className="mx-auto max-w-7xl px-2 py-3 sm:px-4 sm:py-4">
+        <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <Chip active={active === 'all'} onClick={() => setActive('all')}>
             Все
           </Chip>
@@ -188,7 +185,8 @@ function ShopPage({
           ))}
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 xl:grid-cols-5">
+        {/* Сетка «табличек» как на WB/Ozon */}
+        <div className="grid grid-cols-2 gap-x-2 gap-y-4 sm:grid-cols-3 sm:gap-x-3 sm:gap-y-5 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {filtered.map((product) => (
             <ProductTile
               key={product.id}
@@ -246,10 +244,10 @@ function Chip({
     <button
       type="button"
       onClick={onClick}
-      className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm transition ${
+      className={`shrink-0 rounded-full px-3 py-1.5 text-sm transition ${
         active
-          ? 'bg-forest text-white'
-          : 'bg-white text-forest ring-1 ring-forest/10 hover:ring-forest/25'
+          ? 'bg-[#481173] text-white'
+          : 'bg-white text-smoke ring-1 ring-black/8 hover:ring-black/20'
       }`}
     >
       {children}
@@ -257,7 +255,10 @@ function Chip({
   )
 }
 
-/** Карточка в стиле маркетплейса: фото → цена → название → описание → в корзину */
+/**
+ * Табличка товара как на Wildberries / Ozon:
+ * квадратное фото → круглая «корзина» → цена (со скидкой) → ★ рейтинг → название → описание
+ */
 function ProductTile({
   product,
   onOpen,
@@ -266,59 +267,94 @@ function ProductTile({
   onOpen: () => void
 }) {
   const { add } = useCart()
+  const discount =
+    product.oldPrice && product.oldPrice > product.price
+      ? Math.round((1 - product.price / product.oldPrice) * 100)
+      : product.badge === 'sale'
+        ? 15
+        : 0
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-2xl bg-tile shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.04] transition hover:shadow-[0_8px_24px_rgba(22,53,40,0.12)]">
-      <button type="button" onClick={onOpen} className="relative block text-left">
-        <div className="relative aspect-square overflow-hidden bg-mist">
-          <img
-            src={product.image}
-            alt={product.name}
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
-            loading="lazy"
-          />
-          {product.badge && (
-            <span
-              className={`absolute left-2 top-2 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white ${
-                product.badge === 'sale'
-                  ? 'bg-red-500'
-                  : product.badge === 'new'
-                    ? 'bg-sky-600'
-                    : 'bg-forest'
-              }`}
-            >
-              {badgeLabel[product.badge]}
-            </span>
-          )}
-        </div>
-        <div className="px-2.5 pt-2.5 sm:px-3">
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-base font-bold text-forest sm:text-lg">
-              {formatPrice(product.price)}
-            </span>
-            <span className="text-[11px] text-smoke/45">/ {product.unit}</span>
-          </div>
-          <h3 className="mt-1 line-clamp-2 min-h-[2.5rem] text-sm font-medium leading-snug text-smoke">
-            {product.name}
-          </h3>
-          <p className="mt-1 line-clamp-2 min-h-[2.25rem] text-xs leading-snug text-smoke/50">
-            {product.description}
-          </p>
-          {product.note && (
-            <p className="mt-1 text-[11px] text-bark/80">{product.note}</p>
-          )}
-        </div>
-      </button>
-      <div className="mt-auto p-2.5 pt-2 sm:p-3">
+    <article className="group flex flex-col">
+      <div className="relative">
         <button
           type="button"
-          onClick={() => add(product)}
-          className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#0f9d58] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b8a4b] active:scale-[0.98]"
+          onClick={onOpen}
+          className="relative block w-full overflow-hidden rounded-2xl bg-[#f6f6f9] text-left"
         >
-          В корзину
-          <Plus className="h-4 w-4" />
+          <div className="aspect-[3/4] sm:aspect-square">
+            <img
+              src={product.image}
+              alt={product.name}
+              className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+              loading="lazy"
+            />
+          </div>
+          {(product.badge || discount > 0) && (
+            <span
+              className={`absolute left-1.5 top-1.5 rounded px-1.5 py-0.5 text-[10px] font-bold text-white ${
+                discount > 0 || product.badge === 'sale'
+                  ? 'bg-[#f83263]'
+                  : product.badge === 'new'
+                    ? 'bg-[#0a91d2]'
+                    : 'bg-[#481173]'
+              }`}
+            >
+              {discount > 0
+                ? `−${discount}%`
+                : badgeLabel[product.badge!]}
+            </span>
+          )}
+        </button>
+
+        {/* Круглая кнопка корзины на фото — как на WB */}
+        <button
+          type="button"
+          aria-label="В корзину"
+          onClick={() => add(product)}
+          className="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#cb11ab] shadow-[0_2px_10px_rgba(0,0,0,0.18)] transition hover:scale-105 active:scale-95"
+        >
+          <ShoppingBag className="h-4 w-4" strokeWidth={2.4} />
         </button>
       </div>
+
+      <button type="button" onClick={onOpen} className="mt-2 px-0.5 text-left">
+        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+          <span
+            className={`text-[15px] font-bold leading-none sm:text-base ${
+              discount > 0 ? 'text-[#f83263]' : 'text-smoke'
+            }`}
+          >
+            {formatPrice(product.price)}
+          </span>
+          {product.oldPrice && product.oldPrice > product.price && (
+            <span className="text-xs text-smoke/40 line-through">
+              {formatPrice(product.oldPrice)}
+            </span>
+          )}
+          <span className="text-[11px] text-smoke/40">/{product.unit}</span>
+        </div>
+
+        {(product.rating || product.reviews) && (
+          <div className="mt-1 flex items-center gap-1 text-[11px] text-smoke/55">
+            <Star className="h-3 w-3 fill-[#ffb800] text-[#ffb800]" />
+            <span className="font-medium text-smoke/70">
+              {product.rating?.toFixed(1) ?? '5.0'}
+            </span>
+            <span>· {product.reviews ?? 0} оценок</span>
+          </div>
+        )}
+
+        <h3 className="mt-1 line-clamp-2 text-[13px] font-normal leading-snug text-smoke">
+          {product.name}
+        </h3>
+        <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-smoke/45">
+          {product.description}
+        </p>
+        <p className="mt-1 text-[11px] font-medium text-[#0a9b4a]">
+          Доставка по городу
+        </p>
+      </button>
     </article>
   )
 }
