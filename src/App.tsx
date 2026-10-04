@@ -1,100 +1,146 @@
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
-  ArrowUpRight,
+  ArrowLeft,
   Minus,
+  Pencil,
   Phone,
   Plus,
   ShoppingBag,
-  Truck,
+  Trash2,
   X,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { CartProvider, useCart } from './cart'
+import { emptyProduct, useCatalog } from './catalog'
 import {
   categories,
-  products,
+  imageOptions,
   shop,
   type CategoryId,
   type Product,
+  type Unit,
 } from './data/products'
-import { buildOrderMessage, formatPrice, maxShareUrl, telUrl } from './lib/order'
+import {
+  buildOrderMessage,
+  formatPrice,
+  openOrderInMax,
+  telUrl,
+} from './lib/order'
 
 const badgeLabel = {
   hit: 'Хит',
-  sale: 'Акция',
-  new: 'Новинка',
+  sale: '−%',
+  new: 'New',
 } as const
 
-function AppShell() {
-  const reduce = useReducedMotion()
+type View = 'shop' | 'admin'
+
+function useHashView(): [View, (v: View) => void] {
+  const [view, setView] = useState<View>(() =>
+    typeof window !== 'undefined' && window.location.hash === '#admin'
+      ? 'admin'
+      : 'shop',
+  )
+
+  useEffect(() => {
+    const onHash = () =>
+      setView(window.location.hash === '#admin' ? 'admin' : 'shop')
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+
+  const go = (v: View) => {
+    window.location.hash = v === 'admin' ? 'admin' : ''
+    setView(v)
+  }
+
+  return [view, go]
+}
+
+export default function App() {
+  return (
+    <CartProvider>
+      <Root />
+    </CartProvider>
+  )
+}
+
+function Root() {
+  const [view, setView] = useHashView()
+  const catalog = useCatalog()
+
+  if (view === 'admin') {
+    return <AdminPage catalog={catalog} onBack={() => setView('shop')} />
+  }
+
+  return <ShopPage catalog={catalog} onAdmin={() => setView('admin')} />
+}
+
+function ShopPage({
+  catalog,
+  onAdmin,
+}: {
+  catalog: ReturnType<typeof useCatalog>
+  onAdmin: () => void
+}) {
   const { count, setOpen } = useCart()
+  const [active, setActive] = useState<CategoryId | 'all'>('all')
+  const [selected, setSelected] = useState<Product | null>(null)
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24)
+    const onScroll = () => setScrolled(window.scrollY > 8)
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  const filtered = useMemo(() => {
+    const list = catalog.visible
+    return active === 'all' ? list : list.filter((p) => p.category === active)
+  }, [active, catalog.visible])
+
   return (
-    <>
+    <div className="min-h-svh pb-24 md:pb-0">
       <header
-        className={`fixed inset-x-0 top-0 z-40 transition-all duration-500 ${
+        className={`sticky top-0 z-40 border-b transition ${
           scrolled
-            ? 'bg-forest-deep/90 backdrop-blur-md shadow-[0_10px_40px_-20px_rgba(12,31,24,0.7)]'
-            : 'bg-transparent'
+            ? 'border-forest/10 bg-white/95 shadow-sm backdrop-blur'
+            : 'border-transparent bg-white'
         }`}
       >
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <a href="#top" className="flex items-center gap-3 text-paper">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-3 py-2.5 sm:px-5">
+          <a href="#top" className="flex min-w-0 items-center gap-2.5">
             <img
               src="/images/logo-mark.jpg"
               alt=""
-              className="h-11 w-11 rounded-full object-cover ring-1 ring-gold/50"
+              className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-forest/15"
             />
-            <div className="leading-tight">
-              <div className="font-display text-lg tracking-tight text-paper sm:text-xl">
-                {shop.name}
-              </div>
-              <div className="text-[11px] uppercase tracking-[0.18em] text-gold-soft/80">
-                {shop.city}
+            <div className="min-w-0 leading-tight">
+              <div className="truncate font-semibold text-forest">{shop.name}</div>
+              <div className="text-[11px] text-smoke/55">
+                Витрина · {shop.city}
               </div>
             </div>
           </a>
 
-          <nav className="hidden items-center gap-7 text-sm text-paper/85 md:flex">
-            <a href="#catalog" className="hover:text-gold-soft transition">
-              Каталог
-            </a>
-            <a href="#order" className="hover:text-gold-soft transition">
-              Заказ
-            </a>
-            <a href="#delivery" className="hover:text-gold-soft transition">
-              Доставка
-            </a>
-            <a href="#contacts" className="hover:text-gold-soft transition">
-              Контакты
-            </a>
-          </nav>
-
           <div className="flex items-center gap-2">
             <a
               href={telUrl(shop.phone)}
-              className="hidden items-center gap-2 rounded-full border border-gold/30 px-3 py-2 text-sm text-paper transition hover:border-gold hover:bg-gold/10 sm:inline-flex"
+              className="hidden items-center gap-1.5 rounded-full bg-mist px-3 py-2 text-sm text-forest sm:inline-flex"
             >
-              <Phone className="h-4 w-4 text-gold" />
+              <Phone className="h-4 w-4" />
               {shop.phoneDisplay}
             </a>
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className="relative inline-flex items-center gap-2 rounded-full bg-gold px-3.5 py-2 text-sm font-semibold text-forest-deep transition hover:bg-gold-soft"
+              className="relative inline-flex items-center gap-2 rounded-full bg-forest px-3.5 py-2 text-sm font-semibold text-white"
             >
               <ShoppingBag className="h-4 w-4" />
               <span className="hidden sm:inline">Корзина</span>
               {count > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-forest px-1 text-[11px] text-paper">
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gold px-1 text-[11px] font-bold text-forest-deep">
                   {count}
                 </span>
               )}
@@ -103,332 +149,248 @@ function AppShell() {
         </div>
       </header>
 
-      <main id="top" className="pb-24 md:pb-0">
-        <Hero reduce={!!reduce} />
-        <TrustStrip />
-        <Catalog />
-        <CustomOrder />
-        <Delivery />
-        <OrderForm />
-        <Contacts />
-      </main>
-
-      <Footer />
-      <CartDrawer />
-      <MobileDock />
-    </>
-  )
-}
-
-function Hero({ reduce }: { reduce: boolean }) {
-  return (
-    <section className="relative min-h-[100svh] overflow-hidden bg-forest-deep text-paper">
-      <div className="absolute inset-0">
-        <img
-          src="/images/case-1.jpg"
-          alt="Витрина фермерских продуктов РАЗ!Колбас"
-          className="h-full w-full object-cover object-center scale-105"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-forest-deep via-forest-deep/85 to-forest-deep/35" />
-        <div className="absolute inset-0 bg-gradient-to-t from-forest-deep via-transparent to-forest-deep/50" />
-        <div className="absolute inset-0 grain opacity-[0.12] mix-blend-soft-light" />
-      </div>
-
-      <div className="relative mx-auto flex min-h-[100svh] max-w-6xl flex-col justify-end px-4 pb-24 pt-28 sm:px-6 sm:pb-28">
-        <motion.div
-          initial={reduce ? false : { opacity: 0, y: 28 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-          className="max-w-2xl"
-        >
-          <div className="mb-5 inline-flex items-center gap-3">
-            <img
-              src="/images/logo-mark.jpg"
-              alt="РАЗ!Колбас"
-              className="h-16 w-16 rounded-full object-cover ring-2 ring-gold/60 shadow-xl sm:h-20 sm:w-20"
-            />
-            <p className="text-sm uppercase tracking-[0.22em] text-gold-soft">
+      <section id="top" className="border-b border-forest/8 bg-forest text-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-3 py-6 sm:flex-row sm:items-end sm:justify-between sm:px-5 sm:py-8">
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-gold-soft">
               {shop.tagline}
             </p>
+            <h1 className="mt-1 font-display text-3xl sm:text-4xl">
+              Каталог как на витрине
+            </h1>
+            <p className="mt-2 max-w-xl text-sm text-white/70">
+              Выберите товары → оформите заказ → список уйдёт админу в Max.
+              Без предоплаты, доставка по Оренбургу.
+            </p>
           </div>
+          <a
+            href="#order"
+            className="inline-flex items-center justify-center rounded-full bg-gold px-5 py-2.5 text-sm font-semibold text-forest-deep"
+          >
+            Оформить заказ
+          </a>
+        </div>
+      </section>
 
-          <h1 className="font-display text-[clamp(2.6rem,8vw,5.4rem)] leading-[0.95] tracking-tight text-balance">
-            {shop.name}
-          </h1>
-          <p className="mt-5 max-w-lg text-base text-paper/80 sm:text-lg">
-            Колбасы, деликатесы и полуфабрикаты в Оренбурге. Выбираете на сайте —
-            заказ уходит в Max или по телефону. Без предоплаты.
+      <section id="catalog" className="mx-auto max-w-7xl px-2 py-4 sm:px-5 sm:py-6">
+        <div className="mb-3 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <Chip active={active === 'all'} onClick={() => setActive('all')}>
+            Все
+          </Chip>
+          {categories.map((c) => (
+            <Chip
+              key={c.id}
+              active={active === c.id}
+              onClick={() => setActive(c.id)}
+            >
+              {c.title}
+            </Chip>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 xl:grid-cols-5">
+          {filtered.map((product) => (
+            <ProductTile
+              key={product.id}
+              product={product}
+              onOpen={() => setSelected(product)}
+            />
+          ))}
+        </div>
+
+        {filtered.length === 0 && (
+          <p className="py-16 text-center text-smoke/50">
+            В этой категории пока пусто
           </p>
+        )}
+      </section>
 
-          <div className="mt-8 flex flex-wrap gap-3">
-            <a
-              href="#catalog"
-              className="inline-flex items-center gap-2 rounded-full bg-gold px-6 py-3.5 text-sm font-semibold text-forest-deep transition hover:bg-gold-soft"
-            >
-              Смотреть каталог
-              <ArrowUpRight className="h-4 w-4" />
-            </a>
-            <a
-              href="#order"
-              className="inline-flex items-center gap-2 rounded-full border border-paper/25 px-6 py-3.5 text-sm font-medium text-paper transition hover:border-gold hover:text-gold-soft"
-            >
-              Оформить заказ
-            </a>
+      <OrderBlock />
+      <footer className="border-t border-forest/10 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-8 text-sm text-smoke/60 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div>
+            <span className="font-semibold text-forest">{shop.name}</span>
+            {' · '}
+            {shop.city} · {shop.contact}
           </div>
-        </motion.div>
-      </div>
-    </section>
+          <button
+            type="button"
+            onClick={onAdmin}
+            className="text-left text-smoke/40 underline-offset-2 hover:text-forest hover:underline"
+          >
+            Управление каталогом
+          </button>
+        </div>
+      </footer>
+
+      <CartDrawer />
+      <ProductModal
+        product={selected}
+        onClose={() => setSelected(null)}
+      />
+      <MobileDock />
+    </div>
   )
 }
 
-function TrustStrip() {
-  const items = [
-    { title: 'Без предоплаты', text: 'Платите при получении' },
-    { title: 'Доставка', text: 'По Оренбургу' },
-    { title: 'Под заказ', text: 'Пельмени, нарезка, заливное' },
-    { title: 'Свой чат', text: 'Заказ в Max за минуту' },
-  ]
-  return (
-    <section className="border-y border-forest/10 bg-paper/70">
-      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-px bg-forest/10 md:grid-cols-4">
-        {items.map((item) => (
-          <div key={item.title} className="bg-paper px-5 py-6 sm:px-6">
-            <div className="text-xs uppercase tracking-[0.16em] text-bark">
-              {item.title}
-            </div>
-            <div className="mt-2 font-display text-xl text-forest">{item.text}</div>
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function Catalog() {
-  const [active, setActive] = useState<CategoryId | 'all'>('all')
-  const { add } = useCart()
-
-  const filtered = useMemo(
-    () =>
-      active === 'all'
-        ? products
-        : products.filter((p) => p.category === active),
-    [active],
-  )
-
-  return (
-    <section id="catalog" className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
-      <div className="mb-10 max-w-2xl">
-        <p className="text-xs uppercase tracking-[0.2em] text-bark">Каталог</p>
-        <h2 className="mt-3 font-display text-4xl text-forest sm:text-5xl">
-          Выбирайте как на витрине
-        </h2>
-        <p className="mt-4 text-smoke/75">
-          Цены как в магазине. Добавьте в корзину — отправим готовый текст заказа
-          в Max.
-        </p>
-      </div>
-
-      <div className="mb-8 flex gap-2 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <FilterChip
-          active={active === 'all'}
-          onClick={() => setActive('all')}
-          label="Все"
-        />
-        {categories.map((c) => (
-          <FilterChip
-            key={c.id}
-            active={active === c.id}
-            onClick={() => setActive(c.id)}
-            label={c.title}
-          />
-        ))}
-      </div>
-
-      <div className="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((product, i) => (
-          <ProductRow
-            key={product.id}
-            product={product}
-            index={i}
-            onAdd={() => add(product)}
-          />
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function FilterChip({
+function Chip({
   active,
   onClick,
-  label,
+  children,
 }: {
   active: boolean
   onClick: () => void
-  label: string
+  children: React.ReactNode
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`shrink-0 rounded-full px-4 py-2 text-sm transition ${
+      className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm transition ${
         active
-          ? 'bg-forest text-paper'
-          : 'bg-white/60 text-forest ring-1 ring-forest/10 hover:bg-white'
+          ? 'bg-forest text-white'
+          : 'bg-white text-forest ring-1 ring-forest/10 hover:ring-forest/25'
       }`}
     >
-      {label}
+      {children}
     </button>
   )
 }
 
-function ProductRow({
+/** Карточка в стиле маркетплейса: фото → цена → название → описание → в корзину */
+function ProductTile({
   product,
-  index,
-  onAdd,
+  onOpen,
 }: {
   product: Product
-  index: number
-  onAdd: () => void
+  onOpen: () => void
 }) {
+  const { add } = useCart()
+
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 18 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-40px' }}
-      transition={{ delay: Math.min(index * 0.04, 0.24), duration: 0.45 }}
-      className="group"
-    >
-      <div className="relative overflow-hidden rounded-[1.4rem]">
+    <article className="group flex flex-col overflow-hidden rounded-2xl bg-tile shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.04] transition hover:shadow-[0_8px_24px_rgba(22,53,40,0.12)]">
+      <button type="button" onClick={onOpen} className="relative block text-left">
+        <div className="relative aspect-square overflow-hidden bg-mist">
+          <img
+            src={product.image}
+            alt={product.name}
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+            loading="lazy"
+          />
+          {product.badge && (
+            <span
+              className={`absolute left-2 top-2 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white ${
+                product.badge === 'sale'
+                  ? 'bg-red-500'
+                  : product.badge === 'new'
+                    ? 'bg-sky-600'
+                    : 'bg-forest'
+              }`}
+            >
+              {badgeLabel[product.badge]}
+            </span>
+          )}
+        </div>
+        <div className="px-2.5 pt-2.5 sm:px-3">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-base font-bold text-forest sm:text-lg">
+              {formatPrice(product.price)}
+            </span>
+            <span className="text-[11px] text-smoke/45">/ {product.unit}</span>
+          </div>
+          <h3 className="mt-1 line-clamp-2 min-h-[2.5rem] text-sm font-medium leading-snug text-smoke">
+            {product.name}
+          </h3>
+          <p className="mt-1 line-clamp-2 min-h-[2.25rem] text-xs leading-snug text-smoke/50">
+            {product.description}
+          </p>
+          {product.note && (
+            <p className="mt-1 text-[11px] text-bark/80">{product.note}</p>
+          )}
+        </div>
+      </button>
+      <div className="mt-auto p-2.5 pt-2 sm:p-3">
+        <button
+          type="button"
+          onClick={() => add(product)}
+          className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#0f9d58] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b8a4b] active:scale-[0.98]"
+        >
+          В корзину
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
+    </article>
+  )
+}
+
+function ProductModal({
+  product,
+  onClose,
+}: {
+  product: Product | null
+  onClose: () => void
+}) {
+  const { add } = useCart()
+  if (!product) return null
+
+  return (
+    <AnimatePresence>
+      <motion.button
+        type="button"
+        aria-label="Закрыть"
+        className="fixed inset-0 z-50 bg-black/45"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+      />
+      <motion.div
+        role="dialog"
+        className="fixed inset-x-3 bottom-3 z-50 mx-auto max-h-[85svh] max-w-lg overflow-y-auto rounded-3xl bg-white p-4 shadow-2xl sm:inset-y-auto sm:top-1/2 sm:bottom-auto sm:-translate-y-1/2 sm:p-5"
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 24 }}
+      >
+        <div className="flex justify-end">
+          <button type="button" onClick={onClose} className="rounded-full p-1.5 hover:bg-mist">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
         <img
           src={product.image}
           alt={product.name}
-          className="aspect-[4/3] w-full object-cover transition duration-700 group-hover:scale-[1.04]"
-          loading="lazy"
+          className="aspect-[4/3] w-full rounded-2xl object-cover"
         />
-        {product.badge && (
-          <span className="absolute left-3 top-3 rounded-full bg-forest/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-gold-soft">
-            {badgeLabel[product.badge]}
+        <div className="mt-4 text-2xl font-bold text-forest">
+          {formatPrice(product.price)}
+          <span className="ml-2 text-sm font-normal text-smoke/45">
+            / {product.unit}
           </span>
+        </div>
+        <h2 className="mt-2 text-xl font-semibold text-smoke">{product.name}</h2>
+        <p className="mt-3 text-sm leading-relaxed text-smoke/70">
+          {product.description}
+        </p>
+        {product.note && (
+          <p className="mt-2 text-sm text-bark">{product.note}</p>
         )}
-      </div>
-      <div className="mt-4 flex items-start justify-between gap-3">
-        <div>
-          <h3 className="font-display text-xl leading-snug text-forest">
-            {product.name}
-          </h3>
-          <p className="mt-1 text-sm text-smoke/60">
-            {product.note ? `${product.note} · ` : ''}
-            за {product.unit}
-          </p>
-        </div>
-        <div className="text-right">
-          <div className="text-lg font-semibold text-bark">
-            {formatPrice(product.price)}
-          </div>
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={onAdd}
-        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-forest px-4 py-3 text-sm font-semibold text-paper transition hover:bg-moss"
-      >
-        В корзину
-        <Plus className="h-4 w-4" />
-      </button>
-    </motion.article>
+        <button
+          type="button"
+          onClick={() => {
+            add(product)
+            onClose()
+          }}
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#0f9d58] py-3.5 text-sm font-semibold text-white"
+        >
+          В корзину
+          <Plus className="h-4 w-4" />
+        </button>
+      </motion.div>
+    </AnimatePresence>
   )
 }
 
-function CustomOrder() {
-  return (
-    <section className="relative overflow-hidden bg-forest-deep text-paper">
-      <div className="absolute inset-0">
-        <img
-          src="/images/case-4.jpg"
-          alt=""
-          className="h-full w-full object-cover opacity-35"
-        />
-        <div className="absolute inset-0 bg-forest-deep/80" />
-      </div>
-      <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-gold-soft">
-            Под заказ
-          </p>
-          <h2 className="mt-3 font-display text-4xl sm:text-5xl">
-            Пельмени ручной лепки, нарезка и заливное — скажите, что нужно
-          </h2>
-          <p className="mt-5 max-w-xl text-paper/75">
-            Не всё лежит на витрине каждый день. Напишите в Max или оставьте
-            заявку на сайте — соберём заказ к нужному времени.
-          </p>
-        </div>
-        <ul className="space-y-4 text-paper/90">
-          {[
-            'Нарезка к столу',
-            'Пельмени и полуфабрикаты',
-            'Заливное и холодец',
-            'Подбор набора на праздник',
-          ].map((item) => (
-            <li
-              key={item}
-              className="flex items-center gap-3 border-b border-paper/10 pb-4"
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-gold" />
-              {item}
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
-  )
-}
-
-function Delivery() {
-  return (
-    <section id="delivery" className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
-      <div className="grid gap-10 lg:grid-cols-2 lg:items-end">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-bark">Доставка</p>
-          <h2 className="mt-3 font-display text-4xl text-forest sm:text-5xl">
-            По Оренбургу — без предоплаты
-          </h2>
-          <p className="mt-4 max-w-xl text-smoke/75">
-            Оформляете заказ на сайте или в Max. Андрей подтверждает время и
-            привозит. Оплата при получении.
-          </p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {[
-            {
-              icon: Truck,
-              title: 'Город',
-              text: 'Доставка по Оренбургу. Район укажите в заказе.',
-            },
-            {
-              icon: Phone,
-              title: 'Связь',
-              text: 'Max и телефон — ответим и уточним детали.',
-            },
-          ].map(({ icon: Icon, title, text }) => (
-            <div
-              key={title}
-              className="rounded-[1.4rem] bg-white/70 p-6 ring-1 ring-forest/8"
-            >
-              <Icon className="h-5 w-5 text-gold" />
-              <h3 className="mt-4 font-display text-2xl text-forest">{title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-smoke/70">{text}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function OrderForm() {
+function OrderBlock() {
   const { lines, total, clear } = useCart()
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
@@ -436,44 +398,51 @@ function OrderForm() {
   const [when, setWhen] = useState('Сегодня / вечером')
   const [comment, setComment] = useState('')
 
-  const message = buildOrderMessage(lines, { name, phone, address, comment, when })
-
-  const submitMax = () => {
-    window.open(maxShareUrl(message), '_blank', 'noopener,noreferrer')
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    if (lines.length === 0) {
+      alert('Добавьте товары из каталога')
+      return
+    }
+    const message = buildOrderMessage(lines, {
+      name,
+      phone,
+      address,
+      comment,
+      when,
+    })
+    openOrderInMax(message)
   }
 
   return (
-    <section id="order" className="bg-forest text-paper">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 sm:py-28 lg:grid-cols-[0.95fr_1.05fr]">
+    <section id="order" className="border-t border-forest/10 bg-white">
+      <div className="mx-auto grid max-w-7xl gap-8 px-3 py-10 sm:px-5 lg:grid-cols-2">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-gold-soft">
-            Оформление
+          <h2 className="font-display text-3xl text-forest">Заказ админу в Max</h2>
+          <p className="mt-2 text-sm text-smoke/65">
+            Соберите корзину в каталоге. Мы сформируем список товаров и откроем
+            Max — отправьте сообщение {shop.contact}у.
           </p>
-          <h2 className="mt-3 font-display text-4xl sm:text-5xl">
-            Корзина → заказ в Max
-          </h2>
-          <p className="mt-4 text-paper/75">
-            Соберите товары выше, заполните контакты — откроется Max с готовым
-            текстом заказа. Или просто позвоните.
-          </p>
-          <div className="mt-8 rounded-[1.4rem] bg-forest-deep/50 p-5 ring-1 ring-gold/20">
-            <div className="text-sm text-paper/60">В корзине</div>
-            <div className="mt-2 font-display text-3xl">
-              {lines.length ? formatPrice(total) : 'Пока пусто'}
+          <div className="mt-5 rounded-2xl bg-mist/80 p-4">
+            <div className="text-xs uppercase tracking-wider text-smoke/45">
+              В корзине
             </div>
-            <p className="mt-2 text-sm text-paper/55">
-              Итого ориентировочно. Точный вес уточним при сборке.
-            </p>
+            <div className="mt-1 text-2xl font-bold text-forest">
+              {lines.length ? formatPrice(total) : 'Пусто'}
+            </div>
+            {lines.length > 0 && (
+              <ol className="mt-3 space-y-1.5 text-sm text-smoke/75">
+                {lines.map((l, i) => (
+                  <li key={l.product.id}>
+                    {i + 1}. {l.product.name} — {l.qty} {l.product.unit}
+                  </li>
+                ))}
+              </ol>
+            )}
           </div>
         </div>
 
-        <form
-          className="space-y-4"
-          onSubmit={(e) => {
-            e.preventDefault()
-            submitMax()
-          }}
-        >
+        <form className="space-y-3" onSubmit={submit}>
           <Field label="Имя" value={name} onChange={setName} required />
           <Field
             label="Телефон"
@@ -491,11 +460,11 @@ function OrderForm() {
             required
           />
           <label className="block">
-            <span className="mb-2 block text-sm text-paper/70">Когда нужно</span>
+            <span className="mb-1.5 block text-sm text-smoke/60">Когда нужно</span>
             <select
               value={when}
               onChange={(e) => setWhen(e.target.value)}
-              className="w-full rounded-2xl border border-paper/15 bg-forest-deep/40 px-4 py-3 text-paper outline-none focus:border-gold"
+              className="w-full rounded-xl border border-forest/10 bg-white px-3 py-2.5 outline-none focus:border-forest/30"
             >
               <option>Сегодня / вечером</option>
               <option>Завтра</option>
@@ -504,27 +473,25 @@ function OrderForm() {
             </select>
           </label>
           <label className="block">
-            <span className="mb-2 block text-sm text-paper/70">Комментарий</span>
+            <span className="mb-1.5 block text-sm text-smoke/60">Комментарий</span>
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               rows={3}
-              placeholder="Нарезка, под заказ, пожелания..."
-              className="w-full resize-none rounded-2xl border border-paper/15 bg-forest-deep/40 px-4 py-3 text-paper outline-none placeholder:text-paper/35 focus:border-gold"
+              placeholder="Нарезка, под заказ..."
+              className="w-full resize-none rounded-xl border border-forest/10 bg-white px-3 py-2.5 outline-none focus:border-forest/30"
             />
           </label>
-
-          <div className="flex flex-col gap-3 pt-2 sm:flex-row">
+          <div className="flex flex-col gap-2 pt-1 sm:flex-row">
             <button
               type="submit"
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-gold px-5 py-3.5 text-sm font-semibold text-forest-deep transition hover:bg-gold-soft"
+              className="flex-1 rounded-xl bg-forest py-3.5 text-sm font-semibold text-white hover:bg-moss"
             >
-              Отправить в Max
-              <ArrowUpRight className="h-4 w-4" />
+              Отправить список в Max
             </button>
             <a
               href={telUrl(shop.phone)}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-paper/20 px-5 py-3.5 text-sm font-semibold text-paper transition hover:border-gold"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-forest/15 py-3.5 text-sm font-semibold text-forest"
             >
               <Phone className="h-4 w-4" />
               Позвонить
@@ -534,7 +501,7 @@ function OrderForm() {
             <button
               type="button"
               onClick={clear}
-              className="text-sm text-paper/45 underline-offset-2 hover:text-paper/80 hover:underline"
+              className="text-sm text-smoke/40 underline-offset-2 hover:underline"
             >
               Очистить корзину
             </button>
@@ -562,70 +529,16 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm text-paper/70">{label}</span>
+      <span className="mb-1.5 block text-sm text-smoke/60">{label}</span>
       <input
         type={type}
         value={value}
         required={required}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-2xl border border-paper/15 bg-forest-deep/40 px-4 py-3 text-paper outline-none placeholder:text-paper/35 focus:border-gold"
+        className="w-full rounded-xl border border-forest/10 bg-white px-3 py-2.5 outline-none focus:border-forest/30"
       />
     </label>
-  )
-}
-
-function Contacts() {
-  return (
-    <section id="contacts" className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
-      <div className="grid gap-8 lg:grid-cols-[1fr_1.1fr] lg:items-center">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-bark">Контакты</p>
-          <h2 className="mt-3 font-display text-4xl text-forest sm:text-5xl">
-            Андрей · {shop.shortName}
-          </h2>
-          <p className="mt-4 text-smoke/75">
-            Фермерские продукты. Чат в Max и телефон — всегда на связи.
-          </p>
-          <div className="mt-8 space-y-3">
-            <a
-              href={telUrl(shop.phone)}
-              className="flex items-center gap-3 font-display text-2xl text-forest hover:text-bark"
-            >
-              <Phone className="h-5 w-5 text-gold" />
-              {shop.phoneDisplay}
-            </a>
-            <p className="text-sm text-smoke/60">
-              Max: откройте заказ на сайте — текст уйдёт готовым сообщением.
-              Прямую ссылку на чат можно подставить в настройках сайта.
-            </p>
-          </div>
-        </div>
-        <div className="overflow-hidden rounded-[1.8rem]">
-          <img
-            src="/images/case-2.jpg"
-            alt="Ассортимент сыров и молочной продукции"
-            className="aspect-[16/11] w-full object-cover"
-          />
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function Footer() {
-  return (
-    <footer className="border-t border-forest/10 bg-forest-deep text-paper/70">
-      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-10 sm:flex-row sm:items-end sm:justify-between sm:px-6">
-        <div>
-          <div className="font-display text-2xl text-paper">{shop.name}</div>
-          <div className="mt-1 text-sm">{shop.tagline} · {shop.city}</div>
-        </div>
-        <div className="text-sm">
-          Сайт для заказов · без предоплаты · доставка по городу
-        </div>
-      </div>
-    </footer>
   )
 }
 
@@ -638,8 +551,8 @@ function CartDrawer() {
         <>
           <motion.button
             type="button"
-            aria-label="Закрыть корзину"
-            className="fixed inset-0 z-50 bg-forest-deep/50 backdrop-blur-[2px]"
+            aria-label="Закрыть"
+            className="fixed inset-0 z-50 bg-black/40"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -649,39 +562,29 @@ function CartDrawer() {
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
-            transition={{ type: 'spring', stiffness: 320, damping: 34 }}
-            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-paper shadow-2xl"
+            transition={{ type: 'spring', stiffness: 340, damping: 36 }}
+            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-white shadow-2xl"
           >
-            <div className="flex items-center justify-between border-b border-forest/10 px-5 py-4">
-              <h2 className="font-display text-2xl text-forest">Корзина</h2>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="rounded-full p-2 text-forest hover:bg-mist"
-              >
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <h2 className="text-lg font-semibold text-forest">Корзина</h2>
+              <button type="button" onClick={() => setOpen(false)} className="p-2">
                 <X className="h-5 w-5" />
               </button>
             </div>
-
-            <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+            <div className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
               {lines.length === 0 && (
-                <p className="text-smoke/60">Пока пусто — загляните в каталог.</p>
+                <p className="text-smoke/50">Пока пусто — выберите товары в каталоге.</p>
               )}
               {lines.map((line) => (
-                <div
-                  key={line.product.id}
-                  className="flex gap-3 border-b border-forest/8 pb-4"
-                >
+                <div key={line.product.id} className="flex gap-3 border-b border-black/5 pb-3">
                   <img
                     src={line.product.image}
                     alt=""
                     className="h-16 w-16 rounded-xl object-cover"
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium text-forest">
-                      {line.product.name}
-                    </div>
-                    <div className="text-sm text-smoke/60">
+                    <div className="text-sm font-medium">{line.product.name}</div>
+                    <div className="text-xs text-smoke/50">
                       {formatPrice(line.product.price)} / {line.product.unit}
                     </div>
                     <div className="mt-2 flex items-center gap-2">
@@ -692,7 +595,7 @@ function CartDrawer() {
                       >
                         <Minus className="h-4 w-4" />
                       </button>
-                      <span className="w-6 text-center text-sm">{line.qty}</span>
+                      <span className="w-5 text-center text-sm">{line.qty}</span>
                       <button
                         type="button"
                         className="rounded-full bg-mist p-1"
@@ -702,7 +605,7 @@ function CartDrawer() {
                       </button>
                       <button
                         type="button"
-                        className="ml-auto text-xs text-smoke/45 hover:text-bark"
+                        className="ml-auto text-xs text-smoke/40"
                         onClick={() => remove(line.product.id)}
                       >
                         Убрать
@@ -712,20 +615,19 @@ function CartDrawer() {
                 </div>
               ))}
             </div>
-
-            <div className="border-t border-forest/10 px-5 py-4">
-              <div className="mb-3 flex items-end justify-between">
-                <span className="text-sm text-smoke/60">Ориентир</span>
-                <span className="font-display text-2xl text-forest">
+            <div className="border-t px-4 py-4">
+              <div className="mb-3 flex justify-between">
+                <span className="text-sm text-smoke/50">Ориентир</span>
+                <span className="text-xl font-bold text-forest">
                   {formatPrice(total)}
                 </span>
               </div>
               <a
                 href="#order"
                 onClick={() => setOpen(false)}
-                className="flex w-full items-center justify-center rounded-full bg-forest px-4 py-3.5 text-sm font-semibold text-paper hover:bg-moss"
+                className="flex w-full items-center justify-center rounded-xl bg-forest py-3.5 text-sm font-semibold text-white"
               >
-                Оформить заказ
+                К оформлению
               </a>
             </div>
           </motion.aside>
@@ -736,31 +638,341 @@ function CartDrawer() {
 }
 
 function MobileDock() {
+  const { count, setOpen } = useCart()
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-forest/10 bg-paper/95 p-3 backdrop-blur md:hidden pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+    <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-white/95 p-2.5 backdrop-blur md:hidden pb-[max(0.6rem,env(safe-area-inset-bottom))]">
       <div className="mx-auto flex max-w-lg gap-2">
         <a
           href={telUrl(shop.phone)}
-          className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-forest/15 px-3 py-3 text-sm font-semibold text-forest"
+          className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-forest/12 py-3 text-sm font-semibold text-forest"
         >
           <Phone className="h-4 w-4" />
-          Позвонить
+          Звонок
         </a>
-        <a
-          href="#order"
-          className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-gold px-3 py-3 text-sm font-semibold text-forest-deep"
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#0f9d58] py-3 text-sm font-semibold text-white"
         >
-          Заказать
-        </a>
+          <ShoppingBag className="h-4 w-4" />
+          Корзина{count > 0 ? ` · ${count}` : ''}
+        </button>
       </div>
     </div>
   )
 }
 
-export default function App() {
+function AdminPage({
+  catalog,
+  onBack,
+}: {
+  catalog: ReturnType<typeof useCatalog>
+  onBack: () => void
+}) {
+  const [authed, setAuthed] = useState(
+    () => sessionStorage.getItem('razkolbas.admin') === '1',
+  )
+  const [password, setPassword] = useState('')
+  const [editing, setEditing] = useState<Product | null>(null)
+
+  if (!authed) {
+    return (
+      <div className="mx-auto flex min-h-svh max-w-md flex-col justify-center px-4">
+        <button
+          type="button"
+          onClick={onBack}
+          className="mb-6 inline-flex items-center gap-2 text-sm text-smoke/60"
+        >
+          <ArrowLeft className="h-4 w-4" /> На сайт
+        </button>
+        <h1 className="font-display text-3xl text-forest">Каталог</h1>
+        <p className="mt-2 text-sm text-smoke/60">
+          Вход для добавления и редактирования товаров
+        </p>
+        <form
+          className="mt-6 space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (password === shop.adminPassword) {
+              sessionStorage.setItem('razkolbas.admin', '1')
+              setAuthed(true)
+            } else {
+              alert('Неверный пароль')
+            }
+          }}
+        >
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Пароль"
+            className="w-full rounded-xl border border-forest/15 px-3 py-3"
+          />
+          <button
+            type="submit"
+            className="w-full rounded-xl bg-forest py-3 font-semibold text-white"
+          >
+            Войти
+          </button>
+        </form>
+      </div>
+    )
+  }
+
   return (
-    <CartProvider>
-      <AppShell />
-    </CartProvider>
+    <div className="mx-auto min-h-svh max-w-3xl px-3 py-6 sm:px-5">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <button
+            type="button"
+            onClick={onBack}
+            className="mb-2 inline-flex items-center gap-2 text-sm text-smoke/60"
+          >
+            <ArrowLeft className="h-4 w-4" /> На витрину
+          </button>
+          <h1 className="font-display text-3xl text-forest">Товары</h1>
+          <p className="text-sm text-smoke/55">
+            {catalog.products.length} позиций · сохраняется в этом браузере
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setEditing(emptyProduct())}
+            className="rounded-xl bg-[#0f9d58] px-4 py-2.5 text-sm font-semibold text-white"
+          >
+            + Добавить
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm('Сбросить каталог к базовому?')) catalog.reset()
+            }}
+            className="rounded-xl border border-forest/15 px-3 py-2.5 text-sm"
+          >
+            Сброс
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {catalog.products.map((p) => (
+          <div
+            key={p.id}
+            className="flex items-center gap-3 rounded-2xl bg-white p-2.5 ring-1 ring-black/5"
+          >
+            <img src={p.image} alt="" className="h-14 w-14 rounded-xl object-cover" />
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-medium">
+                {p.name}
+                {!p.available && (
+                  <span className="ml-2 text-xs text-red-500">скрыт</span>
+                )}
+              </div>
+              <div className="text-sm text-smoke/55">
+                {formatPrice(p.price)} / {p.unit}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="rounded-full p-2 hover:bg-mist"
+              onClick={() => setEditing(p)}
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className="rounded-full p-2 text-red-500 hover:bg-red-50"
+              onClick={() => {
+                if (confirm(`Удалить «${p.name}»?`)) catalog.remove(p.id)
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {editing && (
+        <ProductEditor
+          product={editing}
+          onClose={() => setEditing(null)}
+          onSave={(p) => {
+            catalog.upsert(p)
+            setEditing(null)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function ProductEditor({
+  product,
+  onClose,
+  onSave,
+}: {
+  product: Product
+  onClose: () => void
+  onSave: (p: Product) => void
+}) {
+  const [draft, setDraft] = useState(product)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-3 sm:items-center">
+      <form
+        className="max-h-[90svh] w-full max-w-lg space-y-3 overflow-y-auto rounded-3xl bg-white p-4 shadow-2xl sm:p-5"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (!draft.name.trim() || !draft.price) {
+            alert('Укажите название и цену')
+            return
+          }
+          onSave({
+            ...draft,
+            name: draft.name.trim(),
+            description: draft.description.trim(),
+          })
+        }}
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">
+            {product.name ? 'Редактировать' : 'Новый товар'}
+          </h2>
+          <button type="button" onClick={onClose} className="p-1">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <label className="block text-sm">
+          Название
+          <input
+            required
+            value={draft.name}
+            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            className="mt-1 w-full rounded-xl border px-3 py-2.5"
+          />
+        </label>
+
+        <label className="block text-sm">
+          Описание
+          <textarea
+            required
+            rows={3}
+            value={draft.description}
+            onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+            className="mt-1 w-full resize-none rounded-xl border px-3 py-2.5"
+            placeholder="Коротко: вкус, для чего, упаковка..."
+          />
+        </label>
+
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block text-sm">
+            Цена, ₽
+            <input
+              required
+              type="number"
+              min={1}
+              value={draft.price || ''}
+              onChange={(e) =>
+                setDraft({ ...draft, price: Number(e.target.value) })
+              }
+              className="mt-1 w-full rounded-xl border px-3 py-2.5"
+            />
+          </label>
+          <label className="block text-sm">
+            Ед.
+            <select
+              value={draft.unit}
+              onChange={(e) =>
+                setDraft({ ...draft, unit: e.target.value as Unit })
+              }
+              className="mt-1 w-full rounded-xl border px-3 py-2.5"
+            >
+              <option value="кг">кг</option>
+              <option value="шт">шт</option>
+            </select>
+          </label>
+        </div>
+
+        <label className="block text-sm">
+          Категория
+          <select
+            value={draft.category}
+            onChange={(e) =>
+              setDraft({ ...draft, category: e.target.value as CategoryId })
+            }
+            className="mt-1 w-full rounded-xl border px-3 py-2.5"
+          >
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.title}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block text-sm">
+          Фото витрины
+          <select
+            value={draft.image}
+            onChange={(e) => setDraft({ ...draft, image: e.target.value })}
+            className="mt-1 w-full rounded-xl border px-3 py-2.5"
+          >
+            {imageOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block text-sm">
+          Бейдж
+          <select
+            value={draft.badge || ''}
+            onChange={(e) =>
+              setDraft({
+                ...draft,
+                badge: (e.target.value || undefined) as Product['badge'],
+              })
+            }
+            className="mt-1 w-full rounded-xl border px-3 py-2.5"
+          >
+            <option value="">Нет</option>
+            <option value="hit">Хит</option>
+            <option value="sale">Акция</option>
+            <option value="new">New</option>
+          </select>
+        </label>
+
+        <label className="block text-sm">
+          Примечание (вес упаковки и т.п.)
+          <input
+            value={draft.note || ''}
+            onChange={(e) => setDraft({ ...draft, note: e.target.value })}
+            className="mt-1 w-full rounded-xl border px-3 py-2.5"
+          />
+        </label>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={draft.available}
+            onChange={(e) =>
+              setDraft({ ...draft, available: e.target.checked })
+            }
+          />
+          Показывать на витрине
+        </label>
+
+        <button
+          type="submit"
+          className="w-full rounded-xl bg-forest py-3.5 font-semibold text-white"
+        >
+          Сохранить
+        </button>
+      </form>
+    </div>
   )
 }

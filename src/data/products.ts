@@ -13,40 +13,22 @@ export type Product = {
   category: CategoryId
   price: number
   unit: Unit
+  description: string
   note?: string
   badge?: 'hit' | 'sale' | 'new'
   image: string
+  available: boolean
 }
 
 export const categories: { id: CategoryId; title: string; blurb: string }[] = [
-  {
-    id: 'sausages',
-    title: 'Колбасы',
-    blurb: 'Фермерские и классические — вареные, копчёные, запечённые',
-  },
-  {
-    id: 'links',
-    title: 'Сосиски и колбаски',
-    blurb: 'На завтрак и для гриля — говяжьи, молочные, украинские',
-  },
-  {
-    id: 'delicacies',
-    title: 'Деликатесы',
-    blurb: 'Грудинка, буженина, рулеты, сало в специях',
-  },
-  {
-    id: 'prepared',
-    title: 'Под заказ и готовое',
-    blurb: 'Заливное, холодец, пельмени ручной лепки',
-  },
-  {
-    id: 'dairy',
-    title: 'Сыры и молочное',
-    blurb: 'Авторские сыры, масло, творожные сырки',
-  },
+  { id: 'sausages', title: 'Колбасы', blurb: 'Вареные, копчёные, запечённые' },
+  { id: 'links', title: 'Сосиски', blurb: 'Говяжьи, молочные, для жарки' },
+  { id: 'delicacies', title: 'Деликатесы', blurb: 'Грудинка, рулеты, сало' },
+  { id: 'prepared', title: 'Готовое', blurb: 'Холодец, заливное, под заказ' },
+  { id: 'dairy', title: 'Сыры', blurb: 'Авторские сыры и масло' },
 ]
 
-export const products: Product[] = [
+export const defaultProducts: Product[] = [
   {
     id: 'krakow-premium',
     name: 'Краковская «Премиум»',
@@ -54,7 +36,10 @@ export const products: Product[] = [
     price: 670,
     unit: 'кг',
     badge: 'hit',
+    available: true,
     image: '/images/case-4.jpg',
+    description:
+      'Плотная копчёная колбаса. Хороша к столу и на нарезку. Вакуум — удобно для доставки.',
   },
   {
     id: 'krakow',
@@ -62,7 +47,9 @@ export const products: Product[] = [
     category: 'sausages',
     price: 670,
     unit: 'кг',
+    available: true,
     image: '/images/case-4.jpg',
+    description: 'Классическая краковская. Насыщенный вкус для бутербродов и праздничной нарезки.',
   },
   {
     id: 'turkey-cheese',
@@ -71,7 +58,9 @@ export const products: Product[] = [
     price: 830,
     unit: 'кг',
     badge: 'new',
+    available: true,
     image: '/images/case-4.jpg',
+    description: 'Нежная индейка с кусочками сыра. Лёгкий вариант из птицы.',
   },
   {
     id: 'wood-baked',
@@ -79,7 +68,9 @@ export const products: Product[] = [
     category: 'sausages',
     price: 745,
     unit: 'кг',
+    available: true,
     image: '/images/case-4.jpg',
+    description: 'Запечённая на дровах — с дымком и плотной текстурой.',
   },
   {
     id: 'farmers',
@@ -88,7 +79,9 @@ export const products: Product[] = [
     price: 370,
     unit: 'кг',
     badge: 'sale',
+    available: true,
     image: '/images/case-3.jpg',
+    description: 'Домашний вкус по доступной цене. На каждый день для семьи.',
   },
   {
     id: 'beef-garlic',
@@ -96,7 +89,9 @@ export const products: Product[] = [
     category: 'sausages',
     price: 410,
     unit: 'кг',
+    available: true,
     image: '/images/case-3.jpg',
+    description: 'Говяжья колбаса с чесноком. К борщу и на закуску.',
   },
   {
     id: 'beef-sausages',
@@ -104,7 +99,9 @@ export const products: Product[] = [
     category: 'links',
     price: 560,
     unit: 'кг',
+    available: true,
     image: '/images/case-1.jpg',
+    description: 'Говяжьи сосиски для завтрака. Варятся быстро, вкус мягкий.',
   },
   {
     id: 'milk-sausages',
@@ -112,7 +109,9 @@ export const products: Product[] = [
     category: 'links',
     price: 390,
     unit: 'кг',
+    available: true,
     image: '/images/case-1.jpg',
+    description: 'Классические молочные сосиски. Привычный вкус на каждый день.',
   },
   {
     id: 'ukrainian',
@@ -121,7 +120,9 @@ export const products: Product[] = [
     price: 600,
     unit: 'кг',
     badge: 'hit',
+    available: true,
     image: '/images/case-1.jpg',
+    description: 'Для жарки и гриля. С хрустящей корочкой и сочной начинкой.',
   },
   {
     id: 'brisket',
@@ -129,7 +130,9 @@ export const products: Product[] = [
     category: 'delicacies',
     price: 685,
     unit: 'кг',
+    available: true,
     image: '/images/case-1.jpg',
+    description: 'Копчёная грудинка с прослойками. Для нарезки и к гарниру.',
   },
   {
     id: 'buzhenina',
@@ -137,7 +140,9 @@ export const products: Product[] = [
     category: 'delicacies',
     price: 775,
     unit: 'кг',
+    available: true,
     image: '/images/case-1.jpg',
+    description: 'Запечённая буженина. Мягкая и ароматная — к праздничному столу.',
   },
   {
     id: 'lard-spices',
@@ -145,7 +150,9 @@ export const products: Product[] = [
     category: 'delicacies',
     price: 690,
     unit: 'кг',
+    available: true,
     image: '/images/case-1.jpg',
+    description: 'Сало в смеси специй. К чёрному хлебу и чесноку.',
   },
   {
     id: 'chicken-roll',
@@ -154,7 +161,9 @@ export const products: Product[] = [
     price: 785,
     unit: 'кг',
     badge: 'hit',
+    available: true,
     image: '/images/case-1.jpg',
+    description: 'Куриный рулет с грибами. Готов к нарезке и подаче.',
   },
   {
     id: 'liver-roll',
@@ -162,7 +171,9 @@ export const products: Product[] = [
     category: 'delicacies',
     price: 650,
     unit: 'кг',
+    available: true,
     image: '/images/case-4.jpg',
+    description: 'Рулет с печёночной начинкой. Удобно нарезать к столу.',
   },
   {
     id: 'kholodets-beef',
@@ -170,7 +181,9 @@ export const products: Product[] = [
     category: 'prepared',
     price: 220,
     unit: 'шт',
+    available: true,
     image: '/images/case-3.jpg',
+    description: 'Говяжий холодец с горчицей. Порционная упаковка, готов к подаче.',
   },
   {
     id: 'kholodets-pork',
@@ -178,7 +191,9 @@ export const products: Product[] = [
     category: 'prepared',
     price: 180,
     unit: 'шт',
+    available: true,
     image: '/images/case-3.jpg',
+    description: 'Свиной холодец с горчицей. Порция на 1–2 человека.',
   },
   {
     id: 'zalivnoe-tongue',
@@ -186,7 +201,9 @@ export const products: Product[] = [
     category: 'prepared',
     price: 740,
     unit: 'кг',
+    available: true,
     image: '/images/case-3.jpg',
+    description: 'Заливное с языком. Праздничное блюдо — можно заказать заранее.',
   },
   {
     id: 'zalivnoe-goose',
@@ -194,7 +211,9 @@ export const products: Product[] = [
     category: 'prepared',
     price: 500,
     unit: 'кг',
+    available: true,
     image: '/images/case-3.jpg',
+    description: 'Гусиное заливное с овощами. К праздничному столу.',
   },
   {
     id: 'cod-liver',
@@ -202,7 +221,9 @@ export const products: Product[] = [
     category: 'prepared',
     price: 620,
     unit: 'шт',
+    available: true,
     image: '/images/case-3.jpg',
+    description: 'Натуральная печень трески. К салатам и на бутерброды.',
   },
   {
     id: 'black-cheese',
@@ -211,7 +232,9 @@ export const products: Product[] = [
     price: 1060,
     unit: 'кг',
     badge: 'new',
+    available: true,
     image: '/images/case-2.jpg',
+    description: 'Авторский чёрный сыр с цедрой лимона. Необычный вид и яркий вкус.',
   },
   {
     id: 'hemp-cheese',
@@ -220,7 +243,9 @@ export const products: Product[] = [
     price: 1055,
     unit: 'кг',
     badge: 'new',
+    available: true,
     image: '/images/case-2.jpg',
+    description: 'Зелёный сыр с семенами конопли. Ореховые нотки на тарелке.',
   },
   {
     id: 'butter',
@@ -229,7 +254,9 @@ export const products: Product[] = [
     price: 550,
     unit: 'шт',
     note: '500 г',
+    available: true,
     image: '/images/case-2.jpg',
+    description: 'Сливочное масло 82,5%. Упаковка 500 г.',
   },
   {
     id: 'cream-cheese',
@@ -238,7 +265,9 @@ export const products: Product[] = [
     price: 165,
     unit: 'шт',
     note: '140 г',
+    available: true,
     image: '/images/case-2.jpg',
+    description: 'Мягкий творожный сыр 140 г. Для бутербродов и роллов.',
   },
 ]
 
@@ -250,13 +279,14 @@ export const shop = {
   phone: '+79128462244',
   phoneDisplay: '+7 (912) 846-22-44',
   contact: 'Андрей',
-  audience: '606+',
-  // Подставьте ссылку на чат Max из настроек профиля, когда будет готова
-  maxChatUrl: '',
-  features: [
-    'Мясо и специи — без лишней химии',
-    'Доставка по Оренбургу',
-    'Без предоплаты',
-    'Под заказ: пельмени, заливное, нарезка',
-  ],
+  maxAdminUrl: '',
+  adminPassword: 'razkolbas',
 }
+
+export const imageOptions = [
+  { value: '/images/case-1.jpg', label: 'Деликатесы' },
+  { value: '/images/case-2.jpg', label: 'Сыры' },
+  { value: '/images/case-3.jpg', label: 'Колбасы / готовое' },
+  { value: '/images/case-4.jpg', label: 'Копчёности' },
+  { value: '/images/logo-mark.jpg', label: 'Логотип' },
+]
